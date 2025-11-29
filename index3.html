@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KARA - Child Protection System (Canada)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .chart-pie-container {
+      width: 100%; max-width: 420px; height: 420px; margin: 0 auto;
+      background: white; border-radius: 1rem; box-shadow: 0 6px 25px rgba(0,0,0,0.08);
+      padding: 20px; display: flex; align-items: center; justify-content: center;
+    }
+    .chart-bar-container {
+      width: 100%; height: 520px; background: white; border-radius: 1rem;
+      box-shadow: 0 6px 25px rgba(0,0,0,0.08); padding: 20px;
+    }
+    canvas { width: 100% !important; height: 100% !important; }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { jsPDF } = window.jspdf;
+
+    const ABUSE_INDICATORS = {
+      neglect: {
+        low:      ["delay","ignore","late","forget","miss"],
+        medium:   ["overlook","omit","neglect","fail to provide"],
+        high:     ["deny care","deny food","deny safety","withhold","refuse treatment"],
+        critical: ["abandon","endanger","leave alone","desert"]
+      },
+      abuse: {
+        low:      ["push","grab","poke","shove","slap"],
+        medium:   ["hit","strike","kick","pull hair","pinch","spank hard"],
+        high:     ["punch","choke","beat","whip","throw","slam"],
+        critical: ["assault","stab","strangle","burn","bludgeon","rape","sexual abuse"]
+      }
+    };
+
+    function detectAbuseLevel(content) {
+      const text = content.trim().toLowerCase();
+      let count = { low: 0, medium: 0, high: 0, critical: 0 };
+      let detectedType = "none";
+
+      const check = (list, level) => {
+        list.forEach(word => {
+          if (text.includes(word)) {
+            count[level]++;
+            if (detectedType === "none") detectedType = (level === "critical" || level === "high" || level === "medium") ? "abuse" : "neglect";
+          }
+        });
+      };
+
+      Object.values(ABUSE_INDICATORS.neglect).forEach((arr, i) => check(arr, ["low","medium","high","critical"][i]));
+      Object.values(ABUSE_INDICATORS.abuse).forEach((arr, i) => check(arr, ["low","medium","high","critical"][i]));
+
+      if (count.critical > 0) return { level: "critical", type: detectedType === "none" ? "neglect" : detectedType };
+      if (count.high >= 2) return { level: "critical", type: "abuse" };
+      if (count.medium >= 3) return { level: "high", type: detectedType };
+      if (count.low >= 4) return { level: "medium", type: detectedType };
+      if (count.high > 0) return { level: "high", type: "abuse" };
+      if (count.medium > 0) return { level: "medium", type: detectedType };
+      if (count.low > 0) return { level: "low", type: detectedType };
+      return { level: "low", type: "none" };
+    }
+
+    const USERS = [
+      { username: "admin", role: "admin" },
+      { username: "user", role: "user" },
+      { username: "organization", role: "organization" }
+    ];
+    const DEMO_PASSWORD = "123";
+
+    const calculateAge = (dob) => {
+      if (!dob) return null;
+      const birth = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      return age >= 0 ? age : null;
+    };
+
+    const formatDateUS = (dateStr) => {
+      if (!dateStr) return "-";
+      const d = new Date(dateStr);
+      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`;
+    };
+
+    function App() {
+      const savedCases = JSON.parse(localStorage.getItem("kara_cases") || "[]");
+      const savedUser = JSON.parse(localStorage.getItem("kara_current_user") || "null");
+
+      const [user, setUser] = React.useState(savedUser);
+      const [cases, setCases] = React.useState(savedCases);
+
+      const [username, setUsername] = React.useState("");
+      const [password, setPassword] = React.useState("");
+      const [loginErr, setLoginErr] = React.useState("");
+
+      const [caseType, setCaseType] = React.useState("case_note");
+      const [childName, setChildName] = React.useState("");
+      const [childDOB, setChildDOB] = React.useState("");
+      const [childGender, setChildGender] = React.useState("male");
+      const [province, setProvince] = React.useState("Ontario");
+      const [content, setContent] = React.useState("");
+      const [editingId, setEditingId] = React.useState(null);
+
+      const [search, setSearch] = React.useState("");
+      const [filterLevel, setFilterLevel] = React.useState("all");
+      const [filterProvince, setFilterProvince] = React.useState("all");
+      const [filterAgeMin, setFilterAgeMin] = React.useState("");
+      const [filterAgeMax, setFilterAgeMax] = React.useState("");
+      const [sortColumn, setSortColumn] = React.useState("date");
+      const [sortOrder, setSortOrder] = React.useState("desc");
+
+      React.useEffect(() => { localStorage.setItem("kara_cases", JSON.stringify(cases)); }, [cases]);
+      React.useEffect(() => { localStorage.setItem("kara_current_user", JSON.stringify(user)); }, [user]);
+
+      const handleLogin = (e) => {
+        e.preventDefault();
+        const found = USERS.find(u => u.username === username && password === DEMO_PASSWORD);
+        if (found) {
+          setUser(found);
+          setLoginErr("");
+          setUsername("");
+          setPassword("");
+        } else {
+          setLoginErr("Incorrect username or password");
+        }
+      };
+
+      const handleLogout = () => {
+        setUser(null);
+        localStorage.removeItem("kara_current_user");
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!childName.trim() || !childDOB || !content.trim()) {
+          alert("Please fill all required fields");
+          return;
+        }
+
+        const age = calculateAge(childDOB);
+        if (age === null || age < 0 || age > 12) {
+          alert("Only children 0–12 years old are accepted");
+          return;
+        }
+
+        const detection = detectAbuseLevel(content);
+
+        const newCase = {
+          id: editingId || Date.now(),
+          type: caseType,
+          childName: childName.trim(),
+          childAge: age,
+          childDOB,
+          childGender,
+          province,
+          content: content.trim(),
+          date: new Date().toISOString().slice(0,10),
+          prediction: detection.level,
+          abuseType: detection.type,
+          createdBy: editingId ? cases.find(c => c.id === editingId).createdBy : user.role,
+          notified: detection.level === "critical"
+        };
+
+        if (editingId) {
+          setCases(prev => prev.map(c => c.id === editingId ? newCase : c));
+          alert("Case updated successfully!");
+        } else {
+          setCases(prev => [newCase, ...prev]);
+          alert("Case added successfully!");
+        }
+
+        setChildName(""); setChildDOB(""); setContent(""); setEditingId(null);
+      };
+
+      const handleEdit = (c) => {
+        if (user.role === "user") {
+          alert("You do not have permission to edit");
+          return;
+        }
+        setEditingId(c.id);
+        setCaseType(c.type);
+        setChildName(c.childName);
+        setChildDOB(c.childDOB);
+        setChildGender(c.childGender);
+        setProvince(c.province);
+        setContent(c.content);
+      };
+
+      const handleDelete = (id) => {
+        if (user.role === "user") {
+          alert("You do not have permission to delete");
+          return;
+        }
+        if (confirm("Delete this case permanently?")) {
+          setCases(prev => prev.filter(c => c.id !== id));
+        }
+      };
+
+      const stats = React.useMemo(() => {
+        const list = user?.role === "organization" ? cases : cases.filter(c => c.createdBy !== "organization");
+        const total = list.length;
+        const critical = list.filter(c => c.prediction === "critical").length;
+        const high = list.filter(c => c.prediction === "high").length;
+        const medium = list.filter(c => c.prediction === "medium").length;
+        const low = list.filter(c => c.prediction === "low").length;
+        const hasAlert = list.some(c => c.notified);
+
+        const gender = { male: 0, female: 0, other: 0 };
+        const ageGroups = { "0-4": 0, "5-9": 0, "10-12": 0 };
+        const provinces = {
+          "Alberta":0,"British Columbia":0,"Manitoba":0,"New Brunswick":0,
+          "Newfoundland and Labrador":0,"Nova Scotia":0,"Ontario":0,
+          "Prince Edward Island":0,"Quebec":0,"Saskatchewan":0
+        };
+        const dates = {};
+
+        list.forEach(c => {
+          gender[c.childGender]++;
+          if (c.childAge <= 4) ageGroups["0-4"]++;
+          else if (c.childAge <= 9) ageGroups["5-9"]++;
+          else ageGroups["10-12"]++;
+          provinces[c.province] = (provinces[c.province] || 0) + 1;
+          dates[c.date] = (dates[c.date] || 0) + 1;
+        });
+
+        return { total, critical, high, medium, low, hasAlert, gender, ageGroups, provinces, dates, list };
+      }, [cases, user]);
+
+      const chartRefs = {
+        gender: React.useRef(null),
+        age: React.useRef(null),
+        province: React.useRef(null),
+        trend: React.useRef(null),
+        bar: React.useRef(null) // đổi tên cho rõ: từ scatter → bar
+      };
+
+      // Xuất Excel
+      const exportToExcel = () => {
+        const data = filteredAndSortedCases.map(c => ({
+          "Child Name": c.childName,
+          "Age": c.childAge,
+          "Gender": c.childGender.charAt(0).toUpperCase() + c.childGender.slice(1),
+          "Province": c.province,
+          "Risk Level": c.prediction.toUpperCase(),
+          "Abuse Type": c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "None detected",
+          "Date": c.date,
+          "Notes": c.content.substring(0, 200) + (c.content.length > 200 ? "..." : "")
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "KARA Cases");
+        XLSX.writeFile(wb, `KARA_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+      };
+
+      // Xuất PDF
+      const exportToPDF = async () => {
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const width = doc.internal.pageSize.getWidth();
+
+        doc.setFontSize(22);
+        doc.setTextColor(30, 64, 175);
+        doc.text("KARA Child Protection Report", width / 2, 25, { align: "center" });
+        doc.setFontSize(12);
+        doc.setTextColor(100);
+        doc.text(`Generated: ${new Date().toLocaleDateString('en-CA')} | User: ${user.username} (${user.role})`, width / 2, 35, { align: "center" });
+
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text(`Total: ${stats.total} • Critical: ${stats.critical} • High: ${stats.high} • Medium: ${stats.medium} • Low: ${stats.low}`, 20, 50);
+
+        let yPos = 60;
+
+        const charts = [
+          { ref: chartRefs.gender.current, title: "Gender Distribution" },
+          { ref: chartRefs.age.current, title: "Age Groups" },
+          { ref: chartRefs.province.current, title: "Cases by Province" },
+          { ref: chartRefs.bar.current, title: "Risk Level by Province (Bar)" }
+        ];
+
+        for (const chart of charts) {
+          if (chart.ref?.chart) {
+            const canvas = await html2canvas(chart.ref, { scale: 2 });
+            const img = canvas.toDataURL("image/png");
+            const imgWidth = 160;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            if (yPos + imgHeight + 20 > 280) { doc.addPage(); yPos = 20; }
+            doc.setFontSize(14);
+            doc.setTextColor(30, 64, 175);
+            doc.text(chart.title, width / 2, yPos, { align: "center" });
+            doc.addImage(img, 'PNG', (width - imgWidth) / 2, yPos + 8, imgWidth, imgHeight);
+            yPos += imgHeight + 25;
+          }
+        }
+
+        // Bảng chi tiết
+        if (filteredAndSortedCases.length > 0) {
+          if (yPos > 200) { doc.addPage(); yPos = 20; }
+          doc.setFontSize(14);
+          doc.setTextColor(30, 64, 175);
+          doc.text("Case Details", 20, yPos);
+          yPos += 10;
+
+          const tableData = filteredAndSortedCases.map(c => [
+            c.childName, c.childAge, c.childGender, c.province,
+            c.prediction.toUpperCase(),
+            c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "-",
+            c.date
+          ]);
+
+          doc.autoTable({
+            head: [["Name", "Age", "Gender", "Province", "Risk", "Type", "Date"]],
+            body: tableData,
+            startY: yPos,
+            theme: "grid",
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [30, 64, 175] }
+          });
+        }
+
+        doc.setFontSize(10);
+        doc.setTextColor(150);
+        doc.text("KARA Child Protection System • Confidential • © 2025", width / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
+
+        doc.save(`KARA_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+      };
+
+      // Tạo biểu đồ
+      React.useEffect(() => {
+        if (!window.Chart) return;
+        const charts = {};
+
+        const pieOptions = {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { padding: 20, font: { size: 14 } } },
+            title: { display: true, padding: 20, font: { size: 18, weight: "bold" } }
+          }
+        };
+
+        // Pie charts
+        if (chartRefs.gender.current) {
+          charts.gender = new Chart(chartRefs.gender.current, {
+            type: "pie",
+            data: { labels: ["Male","Female","Other"], datasets: [{ data: Object.values(stats.gender), backgroundColor: ["#3B82F6","#EC4899","#6B7280"] }] },
+            options: { ...pieOptions, plugins: { ...pieOptions.plugins, title: { text: "Gender Distribution" } } }
+          });
+        }
+
+        if (chartRefs.age.current) {
+          charts.age = new Chart(chartRefs.age.current, {
+            type: "pie",
+            data: { labels: ["0–4 yrs","5–9 yrs","10–12 yrs"], datasets: [{ data: [stats.ageGroups["0-4"], stats.ageGroups["5-9"], stats.ageGroups["10-12"]], backgroundColor: ["#10B981","#F59E0B","#8B5CF6"] }] },
+            options: { ...pieOptions, plugins: { ...pieOptions.plugins, title: { text: "Age Groups" } } }
+          });
+        }
+
+        if (chartRefs.province.current) {
+          charts.province = new Chart(chartRefs.province.current, {
+            type: "pie",
+            data: { labels: Object.keys(stats.provinces), datasets: [{ data: Object.values(stats.provinces), backgroundColor: ["#FF6B6B","#4ECDC4","#45B7D1","#96CEB4","#FECA57","#DDA0DD","#98D8C8","#F7DC6F7","#BB8082","#6C5CE7"] }] },
+            options: { ...pieOptions, plugins: { ...pieOptions.plugins, title: { text: "Cases by Province" } } }
+          });
+        }
+
+        // Line chart - Trend
+        if (chartRefs.trend.current && Object.keys(stats.dates).length > 0) {
+          const sorted = Object.keys(stats.dates).sort();
+          charts.trend = new Chart(chartRefs.trend.current, {
+            type: "line",
+            data: {
+              labels: sorted,
+              datasets: [{
+                label: "Cases per Day",
+                data: sorted.map(d => stats.dates[d]),
+                borderColor: "#EF4444",
+                backgroundColor: "rgba(239,68,68,0.1)",
+                tension: 0.3,
+                fill: true
+              }]
+            },
+            options: { responsive: true, plugins: { title: { display: true, text: "Case Trend Over Time", font: { size: 18, weight: "bold" } } } }
+          });
+        }
+
+        // BAR CHART (Stacked) - Thay thế hoàn toàn cho scatter
+        if (chartRefs.bar.current) {
+          const provinceList = Object.keys(stats.provinces);
+
+          const counts = {
+            low: provinceList.map(() => 0),
+            medium: provinceList.map(() => 0),
+            high: provinceList.map(() => 0),
+            critical: provinceList.map(() => 0)
+          };
+
+          stats.list.forEach(c => {
+            const idx = provinceList.indexOf(c.province);
+            if (idx !== -1) {
+              counts[c.prediction][idx]++;
+            }
+          });
+
+          charts.bar = new Chart(chartRefs.bar.current, {
+            type: "bar",
+            data: {
+              labels: provinceList,
+              datasets: [
+                { label: "Low", data: counts.low, backgroundColor: "rgba(34, 197, 94, 0.85)", stack: "risk" },
+                { label: "Medium", data: counts.medium, backgroundColor: "rgba(234, 179, 8, 0.85)", stack: "risk" },
+                { label: "High", data: counts.high, backgroundColor: "rgba(249, 115, 22, 0.85)", stack: "risk" },
+                { label: "Critical", data: counts.critical, backgroundColor: "rgba(239, 68, 68, 0.95)", stack: "risk" }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                title: { display: true, text: "Risk Level Distribution by Province", font: { size: 18, weight: "bold" } },
+                legend: { position: "top" }
+              },
+              scales: {
+                x: { stacked: true, title: { display: true, text: "Province" } },
+                y: { stacked: true, beginAtZero: true, title: { display: true, text: "Number of Cases" }, ticks: { stepSize: 1 } }
+              }
+            }
+          });
+        }
+
+        return () => Object.values(charts).forEach(c => c?.destroy());
+      }, [stats]);
+
+      const filteredAndSortedCases = React.useMemo(() => {
+        let list = user?.role === "organization" ? cases : cases.filter(c => c.createdBy !== "organization");
+        if (search) {
+          const s = search.toLowerCase();
+          list = list.filter(c => c.childName.toLowerCase().includes(s) || c.content.toLowerCase().includes(s));
+        }
+        if (filterLevel !== "all") list = list.filter(c => c.prediction === filterLevel);
+        if (filterProvince !== "all") list = list.filter(c => c.province === filterProvince);
+        if (filterAgeMin || filterAgeMax) {
+          const min = filterAgeMin === "" ? -Infinity : Number(filterAgeMin);
+          const max = filterAgeMax === "" ? Infinity : Number(filterAgeMax);
+          list = list.filter(c => c.childAge >= min && c.childAge <= max);
+        }
+
+        const order = sortOrder === "asc" ? 1 : -1;
+        list.sort((a, b) => {
+          if (sortColumn === "name") return order * a.childName.localeCompare(b.childName);
+          if (sortColumn === "age") return order * (a.childAge - b.childAge);
+          if (sortColumn === "level") {
+            const lvl = { low:0, medium:1, high:2, critical:3 };
+            return order * (lvl[b.prediction] - lvl[a.prediction]);
+          }
+          return order * (b.date.localeCompare(a.date)); // default: date
+        });
+        return list;
+      }, [cases, user, search, filterLevel, filterProvince, filterAgeMin, filterAgeMax, sortColumn, sortOrder]);
+
+      const toggleSort = (col) => {
+        if (sortColumn === col) {
+          setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+          setSortColumn(col);
+          setSortOrder("desc");
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gray-50">
+          {!user ? (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+              <div className="bg-white p-12 rounded-2xl shadow-2xl w-96 text-center">
+                <h2 className="text-4xl font-bold text-blue-700 mb-8">KARA Child Protection Database</h2>
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <input className="w-full p-4 border-2 rounded-xl" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required />
+                  <input className="w-full p-4 border-2 rounded-xl" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
+                  <button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700">Login</button>
+                </form>
+                {loginErr && <p className="text-red-600 mt-4 font-bold">{loginErr}</p>}
+                <p className="mt-6 text-sm text-gray-600">Demo: <strong>admin</strong> / <strong>user</strong> / <strong>organization</strong> — Password: <strong>123</strong></p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <header className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-6 shadow-xl">
+                <div className="max-w-7xl mx-auto flex justify-between items-center">
+                  <h1 className="text-3xl font-bold">KARA - Child Protection System (Canada)</h1>
+                  <div className="flex items-center gap-6">
+                    <span>Welcome <strong>{user.username}</strong> ({user.role})</span>
+                    <button onClick={handleLogout} className="bg-white text-blue-700 px-6 py-3 rounded-lg font-bold hover:bg-gray-100">Logout</button>
+                  </div>
+                </div>
+              </header>
+
+              <div className="max-w-7xl mx-auto p-6 grid lg:grid-cols-2 gap-8">
+                {/* LEFT: Dashboard */}
+                <div className="bg-white rounded-2xl shadow-xl p-8 space-y-8">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-2xl font-bold text-blue-700">National Statistics</h3>
+                    <div className="flex gap-3">
+                      <button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg font-bold">Excel</button>
+                      <button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-lg font-bold">PDF Report</button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 text-center">
+                    <div className="bg-gray-100 p-6 rounded-xl"><p className="text-4xl font-bold">{stats.total}</p><p>Total Cases</p></div>
+                    <div className="bg-red-100 p-6 rounded-xl"><p className="text-4xl font-bold text-red-600">{stats.critical}</p><p>Critical</p></div>
+                    <div className="bg-orange-100 p-6 rounded-xl"><p className="text-4xl font-bold text-orange-700">{stats.high}</p><p>High Risk</p></div>
+                    <div className="bg-yellow-100 p-6 rounded-xl"><p className="text-4xl font-bold text-yellow-700">{stats.medium}</p><p>Medium Risk</p></div>
+                    <div className="bg-green-100 p-6 rounded-xl"><p className="text-4xl font-bold text-green-700">{stats.low}</p><p>Low Risk</p></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="chart-pie-container"><canvas ref={chartRefs.gender}></canvas></div>
+                    <div className="chart-pie-container"><canvas ref={chartRefs.age}></canvas></div>
+                    <div className="chart-pie-container"><canvas ref={chartRefs.province}></canvas></div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-xl p-6">
+                    <canvas ref={chartRefs.trend}></canvas>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6">
+                    <h4 className="text-xl font-bold text-purple-800 mb-4 text-center">Risk Level Distribution by Province</h4>
+                    <div className="chart-bar-container">
+                      <canvas ref={chartRefs.bar}></canvas>
+                    </div>
+                    <div className="flex justify-center gap-8 mt-4 text-sm font-medium">
+                      <span className="flex items-center gap-2"><div className="w-4 h-4 bg-green-500 rounded"></div>Low</span>
+                      <span className="flex items-center gap-2"><div className="w-4 h-4 bg-yellow-500 rounded"></div>Medium</span>
+                      <span className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-500 rounded"></div>High</span>
+                      <span className="flex items-center gap-2"><div className="w-4 h-4 bg-red-600 rounded"></div>Critical</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT: Form */}
+                <div className="bg-white rounded-2xl shadow-xl p-8">
+                  <h3 className="text-2xl font-bold text-blue-700 mb-6">{editingId ? "Edit Case" : "New Case Entry"}</h3>
+                  {stats.hasAlert && (
+                    <div className="bg-red-100 border-l-4 border-red-600 text-red-800 p-5 rounded mb-6 font-bold text-lg">
+                      CRITICAL CASE DETECTED – IMMEDIATE ACTION REQUIRED!
+                    </div>
+                  )}
+                  <form onSubmit={handleSubmit} className="space-y-5">
+                    <select value={caseType} onChange={e=>setCaseType(e.target.value)} className="w-full p-4 border-2 rounded-xl">
+                      <option value="case_note">Case Note</option>
+                      <option value="school_report">School Report</option>
+                      <option value="medical_document">Medical Record</option>
+                    </select>
+                    <input required placeholder="Child's Full Name" value={childName} onChange={e=>setChildName(e.target.value)} className="w-full p-4 border-2 rounded-xl" />
+                    <input required type="date" value={childDOB} onChange={e=>setChildDOB(e.target.value)} className="w-full p-4 border-2 rounded-xl" />
+                    <select value={childGender} onChange={e=>setChildGender(e.target.value)} className="w-full p-4 border-2 rounded-xl">
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <select value={province} onChange={e=>setProvince(e.target.value)} className="w-full p-4 border-2 rounded-xl bg-blue-50 font-medium">
+                      <option value="Alberta">Alberta</option>
+                      <option value="British Columbia">British Columbia</option>
+                      <option value="Manitoba">Manitoba</option>
+                      <option value="New Brunswick">New Brunswick</option>
+                      <option value="Newfoundland and Labrador">Newfoundland and Labrador</option>
+                      <option value="Nova Scotia">Nova Scotia</option>
+                      <option value="Ontario">Ontario</option>
+                      <option value="Prince Edward Island">Prince Edward Island</option>
+                      <option value="Quebec">Quebec</option>
+                      <option value="Saskatchewan">Saskatchewan</option>
+                    </select>
+                    <textarea required placeholder="Describe the incident or observations..." value={content} onChange={e=>setContent(e.target.value)} className="w-full p-4 border-2 rounded-xl h-40 resize-none"></textarea>
+                    <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-5 rounded-xl font-bold text-xl shadow-lg">
+                      {editingId ? "Update Case" : "Submit & Analyze Risk"}
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Case History Table */}
+              {(user.role === "admin" || user.role === "organization") && (
+                <div className="max-w-7xl mx-auto p-6">
+                  <div className="bg-white rounded-2xl shadow-xl p-8">
+                    <h3 className="text-2xl font-bold text-blue-700 mb-6">Case History ({filteredAndSortedCases.length} cases)</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                      <input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} className="px-5 py-3 border-2 rounded-xl" />
+                      <select value={filterLevel} onChange={e=>setFilterLevel(e.target.value)} className="px-5 py-3 border-2 rounded-xl">
+                        <option value="all">All Levels</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                      </select>
+                      <select value={filterProvince} onChange={e=>setFilterProvince(e.target.value)} className="px-5 py-3 border-2 rounded-xl">
+                        <option value="all">All Provinces</option>
+                        <option value="Ontario">Ontario</option>
+                        <option value="Quebec">Quebec</option>
+                        <option value="British Columbia">British Columbia</option>
+                        <option value="Alberta">Alberta</option>
+                        <option value="Manitoba">Manitoba</option>
+                        <option value="Saskatchewan">Saskatchewan</option>
+                        <option value="Nova Scotia">Nova Scotia</option>
+                        <option value="New Brunswick">New Brunswick</option>
+                        <option value="Newfoundland and Labrador">Newfoundland and Labrador</option>
+                        <option value="Prince Edward Island">Prince Edward Island</option>
+                      </select>
+                      <div className="flex gap-2">
+                        <input type="number" placeholder="Min age" value={filterAgeMin} onChange={e=>setFilterAgeMin(e.target.value)} className="w-24 px-4 py-3 border-2 rounded-xl" />
+                        <input type="number" placeholder="Max age" value={filterAgeMax} onChange={e=>setFilterAgeMax(e.target.value)} className="w-24 px-4 py-3 border-2 rounded-xl" />
+                      </div>
+                      <button onClick={()=>{setSearch("");setFilterLevel("all");setFilterProvince("all");setFilterAgeMin("");setFilterAgeMax("");}} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700">Clear</button>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border">
+                      <table className="w-full text-left">
+                        <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                          <tr>
+                            <th className="p-4 cursor-pointer" onClick={()=>toggleSort("name")}>Child Name</th>
+                            <th className="p-4">DOB</th>
+                            <th className="p-4 cursor-pointer" onClick={()=>toggleSort("age")}>Age</th>
+                            <th className="p-4 cursor-pointer" onClick={()=>toggleSort("level")}>Risk Level</th>
+                            <th className="p-4">Type</th>
+                            <th className="p-4">Province</th>
+                            <th className="p-4 cursor-pointer" onClick={()=>toggleSort("date")}>Date</th>
+                            <th className="p-4">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredAndSortedCases.length === 0 ? (
+                            <tr><td colSpan="8" className="p-12 text-center text-gray-500 text-xl">No cases found</td></tr>
+                          ) : (
+                            filteredAndSortedCases.map(c => (
+                              <tr key={c.id} className="border-b hover:bg-gray-50">
+                                <td className="p-4 font-medium">{c.childName}</td>
+                                <td className="p-4">{formatDateUS(c.childDOB)}</td>
+                                <td className="p-4 text-center font-bold text-lg">{c.childAge}</td>
+                                <td className={`p-4 font-bold ${c.prediction==="critical"?"text-red-600":c.prediction==="high"?"text-orange-600":c.prediction==="medium"?"text-yellow-700":"text-green-600"}`}>
+                                  {c.prediction.toUpperCase()}
+                                </td>
+                                <td className="p-4">{c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "-"}</td>
+                                <td className="p-4">{c.province}</td>
+                                <td className="p-4">{c.date}</td>
+                                <td className="p-4">
+                                  <button onClick={()=>handleEdit(c)} className="bg-blue-600 text-white px-4 py-2 rounded-lg mr-2 hover:bg-blue-700">Edit</button>
+                                  <button onClick={()=>handleDelete(c.id)} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">Delete</button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
