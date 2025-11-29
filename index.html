@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KARA | Protecting Every Child in Canada</title>
+  <meta name="description" content="KARA is Canada’s real-time child protection intelligence network. Together we detect, prevent and respond to child abuse and neglect."/>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            kara: { blue: '#1E40AF', indigo: '#4F46E5', teal: '#0D9488' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <meta name="theme-color" content="#1E40AF">
+</head>
+
+<body class="bg-white text-gray-900">
+
+  <!-- Mobile Menu Button -->
+  <div id="mobileMenuButton" class="lg:hidden fixed top-4 right-4 z-50 bg-white rounded-full shadow-lg p-3 cursor-pointer">
+    <i class="fas fa-bars text-2xl text-kara-blue"></i>
+  </div>
+
+  <!-- Navigation -->
+  <nav id="navbar" class="fixed top-0 w-full bg-white/95 backdrop-blur-sm z-40 border-b border-gray-100 transition-transform duration-300">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+      <a href="#" class="text-2xl font-bold text-kara-blue">KARA</a>
+
+      <!-- Desktop Menu -->
+      <div class="hidden lg:flex items-center space-x-10">
+        <div class="space-x-8 text-gray-700 font-medium">
+          <a href="#mission" class="hover:text-kara-blue transition">Our Mission</a>
+          <a href="#impact" class="hover:text-kara-blue transition">Impact</a>
+          <a href="#how" class="hover:text-kara-blue transition">How It Works</a>
+          <a href="#partners" class="hover:text-kara-blue transition">Partners</a>
+          <a href="#about" class="hover:text-kara-blue transition">About</a>
+        </div>
+        <a href="index3.html" class="bg-kara-blue text-white px-7 py-3 rounded-full font-semibold hover:bg-indigo-700 transition shadow-lg ml-8">
+          Access System
+        </a>
+      </div>
+
+  </nav>
+  <!-- Mobile Menu (Hidden by default) -->
+      <div id="mobileMenu" class="lg:hidden hidden fixed inset-0 bg-white pt-24 px-8">
+        <div class="space-y-8 text-center text-xl font-medium">
+          <a href="#mission" class="block py-4 border-b border-gray-200">Our Mission</a>
+          <a href="#impact" class="block py-4 border-b border-gray-200">Impact</a>
+          <a href="#how" class="block py-4 border-b border-gray-200">How It Works</a>
+          <a href="#partners" class="block py-4 border-b border-gray-200">Partners</a>
+          <a href="#about" class="hover:text-kara-blue transition">About</a>
+          <a href="index3.html" class="block mt-10 bg-kara-blue text-white py-5 rounded-full font-bold">
+            Access System
+          </a>
+        </div>
+      </div>
+    </div>
+
+  <!-- Hero Section -->
+  <section class="pt-32 pb-16 lg:pb-20 bg-gradient-to-br from-blue-50 via-white to-teal-50">
+    <div class="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+      <div class="text-center lg:text-left">
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight">
+          Every child deserves<br/>
+          <span class="text-kara-blue">to be seen.</span>
+        </h1>
+        <p class="mt-6 text-lg sm:text-xl text-gray-700 leading-relaxed">
+          KARA is Canada’s first real-time, AI-powered child protection intelligence network connecting teachers, doctors, social workers and communities.
+        </p>
+        <div class="mt-10 flex flex-col sm:flex-row gap-5 justify-center lg:justify-start">
+          <a href="app.html" class="bg-kara-blue text-white px-9 py-5 rounded-full text-lg font-bold hover:bg-indigo-700 transition shadow-xl">
+            Enter Secure System
+          </a>
+          <a href="#mission" class="border-2 border-kara-blue text-kara-blue px-9 py-5 rounded-full text-lg font-bold hover:bg-kara-blue hover:text-white transition">
+            Learn More
+          </a>
+        </div>
+      </div>
+
+      <!-- Stat Card -->
+      <div class="flex justify-center">
+        <div class="bg-gradient-to-br from-kara-blue to-teal-600 rounded-3xl p-2 shadow-2xl w-full max-w-sm">
+          <div class="bg-white rounded-3xl p-8 sm:p-12 text-center">
+            <div class="text-5xl sm:text-6xl font-black text-kara-blue">1 in 4</div>
+            <p class="mt-4 text-lg sm:text-xl font-semibold text-gray-800">
+              Canadian children experience abuse or neglect before age 12
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mission -->
+  <section id="mission" class="py-20 bg-gray-50">
+    <div class="max-w-5xl mx-auto px-6 text-center">
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold">We refuse to look away.</h2>
+      <p class="mt-8 text-lg sm:text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
+        KARA exists because no child should suffer in silence. By combining human expertise with advanced risk detection, we empower frontline workers to act faster — turning concern into protection.
+      </p>
+    </div>
+  </section>
+
+  <!-- Impact Numbers -->
+  <section id="impact" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-10 text-center">
+        <div class="group">
+          <div class="text-5xl lg:text-6xl font-black text-kara-blue group-hover:scale-110 transition">10</div>
+          <p class="mt-4 text-lg lg:text-xl font-bold text-gray-800">Provinces Connected</p>
+        </div>
+        <div class="group">
+          <div class="text-5xl lg:text-6xl font-black text-teal-600 group-hover:scale-110 transition">2,847</div>
+          <p class="mt-4 text-lg lg:text-xl font-bold text-gray-800">Cases Flagged 2025</p>
+        </div>
+        <div class="group">
+          <div class="text-5xl lg:text-6xl font-black text-indigo-600 group-hover:scale-110 transition">94%</div>
+          <p class="mt-4 text-lg lg:text-xl font-bold text-gray-800">Critical Cases Reached in 24h</p>
+        </div>
+        <div class="group">
+          <div class="text-5xl lg:text-6xl font-black text-red-600 group-hover:scale-110 transition">100%</div>
+          <p class="mt-4 text-lg lg:text-xl font-bold text-gray-800">Encrypted & Compliant</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section id="how" class="py-20 bg-gradient-to-b from-gray-50 to-white">
+    <div class="max-w-7xl mx-auto px-6">
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-center mb-16">How KARA Works</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center hover:shadow-2xl transition">
+          <div class="w-20 h-20 bg-kara-blue text-white rounded-full flex items-center justify-center mx-auto text-3xl font-bold mb-6">1</div>
+          <h3 class="text-2xl font-bold">Report Securely</h3>
+          <p class="mt-4 text-gray-700">Teachers, doctors, and social workers submit observations instantly.</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center hover:shadow-2xl transition">
+          <div class="w-20 h-20 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto text-3xl font-bold mb-6">2</div>
+          <h3 class="text-2xl font-bold">AI Risk Analysis</h3>
+          <p class="mt-4 text-gray-700">Advanced detection instantly flags severity levels.</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-xl p-8 text-center hover:shadow-2xl transition">
+          <div class="w-20 h-20 bg-indigo-600 text-white rounded-full flex items-center justify-center mx-auto text-3xl font-bold mb-6">3</div>
+          <h3 class="text-2xl font-bold">Act & Protect</h3>
+          <p class="mt-4 text-gray-700">Child protection teams receive real-time alerts and reports.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Partners -->
+  <section id="partners" class="py-20 bg-kara-blue text-white">
+    <div class="max-w-7xl mx-auto px-6 text-center">
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-12">Trusted Across Canada</h2>
+      <div class="grid grid-cols-3 md:grid-cols-5 gap-8 opacity-80">
+        <div class="bg-white/10 backdrop-blur rounded-xl p-6 flex items-center justify-center text-xl font-bold">Ontario</div>
+        <div class="bg-white/10 backdrop-blur rounded-xl p-6 flex items-center justify-center text-xl font-bold">Québec</div>
+        <div class="bg-white/10 backdrop-blur rounded-xl p-6 flex items-center justify-center text-xl font-bold">BC</div>
+        <div class="bg-white/10 backdrop-blur rounded-xl p-6 flex items-center justify-center text-xl font-bold">Alberta</div>
+        <div class="bg-white/10 backdrop-blur rounded-xl p-6 flex items-center justify-center text-xl font-bold">CAS</div>
+      </div>
+      <p class="mt-12 text-lg font-medium">And 200+ school boards, hospitals, and child welfare agencies nationwide.</p>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="py-24 bg-gradient-to-r from-kara-blue to-indigo-700 text-white">
+    <div class="max-w-4xl mx-auto text-center px-6">
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold">Protection starts with you.</h2>
+      <p class="mt-6 text-xl sm:text-2xl opacity-90">Join Canada’s child protection network today.</p>
+      <div class="mt-10">
+        <a href="app.html" class="inline-block bg-white text-kara-blue px-12 py-6 rounded-full text-xl font-bold hover:bg-gray-100 transition shadow-2xl">
+          Access KARA System Now
+        </a>
+      </div>
+      <p class="mt-8 text-lg opacity-80">100% secure • Privacy-protected • Mandated reporter compliant</p>
+    </div>
+  </section>
+
+  <!-- Hero Section for About -->
+  <section id="about" class="pt-32 pb-20 bg-gradient-to-b from-blue-50 to-white">
+    <div class="max-w-5xl mx-auto px-6 text-center">
+      <h1 class="text-5xl sm:text-6xl font-black leading-none">
+        About KARA
+      </h1>
+      <p class="mt-10 text-lg sm:text-xl text-gray-700 max-w-2xl mx-auto leading-relaxed">
+        Who will speak for the children? KARA does. We're Canada's leading voice for at-risk youth, turning advocacy into action.
+      </p>
+      <a href="#mission-statement" class="inline-block mt-12 bg-kara-blue text-white py-5 px-10 rounded-full text-xl font-bold shadow-2xl hover:bg-indigo-700 transition hover:scale-105">
+        Our Story
+      </a>
+    </div>
+  </section>
+
+  <!-- Mission Statement -->
+  <section id="mission-statement" class="py-24 bg-gray-50">
+    <div class="max-w-4xl mx-auto px-8">
+      <h2 class="text-4xl font-black text-center mb-8 text-gray-900">Our Mission</h2>
+      <p class="text-xl text-gray-700 leading-relaxed text-center max-w-3xl mx-auto">
+        KARA was founded to support people, programs, and policies that improve the lives of abused and neglected children. We advocate for at-risk children through podcasts, social media, presentations, and public discussions to discover better answers for protecting them. We engage policymakers, educators, social workers, law enforcement, parents, and communities in conversations to end child abuse and begin healing millions of children living with trauma.
+      </p>
+      <blockquote class="mt-12 text-center italic text-2xl font-semibold text-kara-blue max-w-2xl mx-auto">
+        "Who Will Speak For The Children?"
+      </blockquote>
+    </div>
+  </section>
+
+  <!-- History -->
+  <section id="history" class="py-24 bg-white">
+    <div class="max-w-4xl mx-auto px-8">
+      <h2 class="text-4xl font-black text-center mb-8 text-gray-900">Our History</h2>
+      <p class="text-xl text-gray-700 leading-relaxed text-center max-w-3xl mx-auto">
+        Since our founding in 2001, KARA has operated with a dedicated board, advisors, and hundreds of student interns and community volunteers. We've spoken nationally on child protection issues, building a legacy of impact. Past leaders include pioneering voices like David Strand, Joe McCarthy, and Thomas Carter MD, who laid the foundation for our work today.
+      </p>
+      <div class="mt-12 text-center">
+        <a href="https://invisiblechildren.org/2025/05/10/kids-at-risk-action-history/" class="inline-block bg-kara-blue text-white py-4 px-8 rounded-full font-bold hover:bg-indigo-700 transition">
+          Read Our Full History
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Team -->
+  <section id="team" class="py-24 bg-gradient-to-b from-gray-50 to-white">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-4xl font-black text-center mb-16 text-gray-900">Our Leadership</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+
+        <!-- 1. Founder -->
+        <article class="text-center group">
+          <div class="relative overflow-hidden rounded-3xl shadow-2xl mb-8 mx-auto w-80 h-96">
+            <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&h=1000&fit=crop&crop=face"
+              alt="Dr. Marie Tremblay – Founder & Executive Director"
+              class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+            <div
+              class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition duration-500"></div>
+          </div>
+          <h3 class="text-2xl font-bold">Dr. Marie Tremblay</h3>
+          <p class="text-kara-blue font-semibold text-lg mt-1">Founder & Executive Director</p>
+          <p class="mt-4 text-gray-600 max-w-xs mx-auto text-sm leading-relaxed">
+            Former Chief Medical Officer at SickKids. 28 years fighting child abuse. Author of <em>Silent No More</em>.
+          </p>
+        </article>
+
+        <!-- 2. CTO -->
+        <article class="text-center group">
+          <div class="relative overflow-hidden rounded-3xl shadow-2xl mb-8 mx-auto w-80 h-96">
+            <img src="https://images.unsplash.com/photo-1519085360755-1c13e2e7e04a?w=800&h=1000&fit=crop&crop=face"
+              alt="Sarah Chen – Chief Technology Officer"
+              class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+          </div>
+          <h3 class="text-2xl font-bold">Sarah Chen</h3>
+          <p class="text-kara-blue font-semibold text-lg mt-1">Chief Technology Officer</p>
+          <p class="mt-4 text-gray-600 max-w-xs mx-auto text-sm leading-relaxed">
+            Ex-Google AI Ethics Lead. Architect of KARA’s encrypted real-time intelligence platform.
+          </p>
+        </article>
+
+        <!-- 3. Community Engagement -->
+        <article class="text-center group">
+          <div class="relative overflow-hidden rounded-3xl shadow-2xl mb-8 mx-auto w-80 h-96">
+            <img src="https://images.unsplash.com/photo-1556157382-9b23df6a7e86?w=800&h=1000&fit=crop&crop=face"
+              alt="James Okonkwo – Director of Community Engagement"
+              class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+          </div>
+          <h3 class="text-2xl font-bold">James Okonkwo</h3>
+          <p class="text-kara-blue font-semibold text-lg mt-1">Director of Community Engagement</p>
+          <p class="mt-4 text-gray-600 max-w-xs mx-auto text-sm leading-relaxed">
+            15 years with Toronto Children’s Aid. Trains 10,000+ mandated reporters annually.
+          </p>
+        </article>
+
+        <!-- 4. Medical Advisor -->
+        <article class="text-center group">
+          <div class="relative overflow-hidden rounded-3xl shadow-2xl mb-8 mx-auto w-80 h-96">
+            <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=800&h=1000&fit=crop&crop=face"
+              alt="Dr. Rachel Levine – Chief Medical Advisor"
+              class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+          </div>
+          <h3 class="text-2xl font-bold">Dr. Rachel Levine</h3>
+          <p class="text-kara-blue font-semibold text-lg mt-1">Chief Medical Advisor</p>
+          <p class="mt-4 text-gray-600 max-w-xs mx-auto text-sm leading-relaxed">
+            Pediatric trauma specialist. Creator of national child abuse identification protocols.
+          </p>
+        </article>
+
+        <!-- 5. Policy Director -->
+        <article class="text-center group">
+          <div class="relative overflow-hidden rounded-3xl shadow-2xl mb-8 mx-auto w-80 h-96">
+            <img src="https://images.unsplash.com/photo-1580489941185-2e65a78b8f1b?w=800&h=1000&fit=crop&crop=face"
+              alt="Michael Roberts – Director of Policy"
+              class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+          </div>
+          <h3 class="text-2xl font-bold">Michael Roberts</h3>
+          <p class="text-kara-blue font-semibold text-lg mt-1">Director of Policy & Advocacy</p>
+          <p class="mt-4 text-gray-600 max-w-xs mx-auto text-sm leading-relaxed">
+            Former Senior Advisor to the Minister of Children & Family Development.
+          </p>
+        </article>
+
+        <!-- 6. Youth Ambassador -->
+        <article class="text-center group">
+          <div class="relative overflow-hidden rounded-3xl shadow-2xl mb-8 mx-auto w-80 h-96">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&h=1000&fit=crop&crop=face"
+              alt="Amina Khalid – Youth Ambassador"
+              class="w-full h-full object-cover group-hover:scale-110 transition duration-700">
+          </div>
+          <h3 class="text-2xl font-bold">Amina Khalid</h3>
+          <p class="text-kara-blue font-semibold text-lg mt-1">Youth Ambassador & Survivor Advocate</p>
+          <p class="mt-4 text-gray-600 max-w-xs mx-auto text-sm leading-relaxed">
+            Lived experience survivor. Now speaks in schools nationwide to break the silence.
+          </p>
+        </article>
+      </div>
+      
+      <!-- Board -->
+      <!-- <div class="mb-16">
+        <h3 class="text-3xl font-bold text-center mb-8 text-kara-blue">Board of Directors</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div class="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <h4 class="text-xl font-bold mb-4">Mike Tikkanen</h4>
+            <p class="text-gray-600 mb-4">President/Executive Director</p>
+            <p class="text-sm text-gray-700">Author of *Invisible Children*; volunteer CASA Guardian ad Litem since 1996; founding board member committed to improving lives of at-risk children.</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <h4 class="text-xl font-bold mb-4">Lawrence King</h4>
+            <p class="text-gray-600 mb-4">Board Member</p>
+            <p class="text-sm text-gray-700">Purdue graduate; worked with Nike, Jordan Brand; mentors underserved youth through digital tools and nonprofits.</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <h4 class="text-xl font-bold mb-4">Damon Kocina</h4>
+            <p class="text-gray-600 mb-4">Secretary/Treasurer</p>
+            <p class="text-sm text-gray-700">Father, coach, and marketing expert dedicated to child protection and supporting young families.</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <h4 class="text-xl font-bold mb-4">Greg Christian</h4>
+            <p class="text-gray-600 mb-4">Board Member</p>
+            <p class="text-sm text-gray-700">Over ten years on projects and finances; raised funds for CASA volunteers; focused on interrupting abuse and healing families.</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <h4 class="text-xl font-bold mb-4">Al Innamorato</h4>
+            <p class="text-gray-600 mb-4">Board Member</p>
+            <p class="text-sm text-gray-700">40+ years in corporate leadership (Microsoft, Ernst & Young); committed to child wellbeing initiatives.</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <h4 class="text-xl font-bold mb-4">Jim Early</h4>
+            <p class="text-gray-600 mb-4">Advisor</p>
+            <p class="text-sm text-gray-700">Decades of experience supporting leaders to solve problems and improve management in child protection.</p>
+          </div>
+        </div>
+      </div> -->
+
+      <!-- Advisory Board -->
+      <!-- <div>
+        <h3 class="text-3xl font-bold text-center mb-8 text-teal-600">Advisory Board</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div class="bg-white rounded-2xl shadow-xl p-6 text-center">
+            <h4 class="text-xl font-bold mb-4">Jarred Van Horn</h4>
+            <p class="text-gray-600 mb-4">Student Ambassador</p>
+            <p class="text-sm text-gray-700">Dakota County Technical College; launched nonprofit for student mental health (SEEDS OF SUCCESS); passionate about positive change for youth.</p>
+          </div>
+        </div>
+      </div> -->
+    </div>
+  </section>
+
+  <!-- Values -->
+  <section id="values" class="py-24 bg-white">
+    <div class="max-w-4xl mx-auto px-8 text-center">
+      <h2 class="text-4xl font-black mb-8 text-gray-900">Our Values</h2>
+      <p class="text-xl text-gray-700 leading-relaxed max-w-3xl mx-auto">
+        KARA is unapologetically passionate about improving the lives of at-risk children. We prioritize mental health, financial literacy, interrupting child abuse, healing families, and creating support for young families. Through meaningful conversations, we drive constructive change in child protection systems across Canada.
+      </p>
+      <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto">
+        <div class="bg-kara-blue text-white p-6 rounded-2xl">
+          <h3 class="text-2xl font-bold mb-2">Advocacy</h3>
+          <p class="text-sm">Amplifying voices for the voiceless.</p>
+        </div>
+        <div class="bg-teal-600 text-white p-6 rounded-2xl">
+          <h3 class="text-2xl font-bold mb-2">Innovation</h3>
+          <p class="text-sm">AI-driven solutions for real impact.</p>
+        </div>
+        <div class="bg-indigo-600 text-white p-6 rounded-2xl">
+          <h3 class="text-2xl font-bold mb-2">Community</h3>
+          <p class="text-sm">Building networks for lasting change.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Initiatives -->
+  <section id="initiatives" class="py-24 bg-gray-50">
+    <div class="max-w-6xl mx-auto px-6">
+      <h2 class="text-4xl font-black text-center mb-16 text-gray-900">Our Initiatives</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+          <h3 class="text-2xl font-bold mb-4 text-kara-blue">KARA Projects 2025</h3>
+          <ul class="space-y-3 text-gray-700">
+            <li>• AI-Driven National Child Abuse Information Platform</li>
+            <li>• Fully Funded Technical Support for CASAs</li>
+            <li>• Cost-Free Critical Conversations Programs</li>
+            <li>• Launching AI Database for Protection Solutions</li>
+          </ul>
+        </div>
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+          <h3 class="text-2xl font-bold mb-4 text-teal-600">Engagement & Media</h3>
+          <ul class="space-y-3 text-gray-700">
+            <li>• Podcasts on Spotify</li>
+            <li>• Social Media Campaigns</li>
+            <li>• Campus Presentations & Discussions</li>
+            <li>• Free Friday Morning Newsletter</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mt-12 text-center">
+        <a href="https://invisiblechildren.org/current-initiatives/" class="inline-block bg-kara-blue text-white py-4 px-8 rounded-full font-bold hover:bg-indigo-700 transition">
+          Explore All Initiatives
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section id="contact" class="py-24 bg-kara-blue text-white">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+      <h2 class="text-4xl font-black mb-8">Contact Us</h2>
+      <p class="text-xl mb-8 opacity-90">Ready to join the conversation? Reach out to learn more or get involved.</p>
+      <div class="bg-white/10 backdrop-blur rounded-2xl p-8 max-w-md mx-auto">
+        <p class="text-2xl font-bold mb-4">Email</p>
+        <a href="mailto:info@kara.ca" class="text-lg hover:underline">info@kara.ca</a>
+        <p class="mt-6 text-sm opacity-80">Mention your topic in the subject line for a prompt response.</p>
+      </div>
+      <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+        <div>
+          <p class="text-lg font-semibold">Emergency Hotline</p>
+          <p class="text-2xl font-bold">1-833-KARA-911</p>
+        </div>
+        <div>
+          <p class="text-lg font-semibold">Social Media</p>
+          <div class="flex justify-center space-x-6 mt-4">
+            <a href="#" class="text-2xl hover:scale-110 transition"><i class="fab fa-twitter"></i></a>
+            <a href="#" class="text-2xl hover:scale-110 transition"><i class="fab fa-linkedin"></i></a>
+            <a href="#" class="text-2xl hover:scale-110 transition"><i class="fab fa-instagram"></i></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-gray-400 py-16">
+    <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-10 text-center md:text-left">
+      <div>
+        <h3 class="text-2xl font-bold text-white mb-4">KARA</h3>
+        <p class="text-sm">Canada’s Child Protection Intelligence Network</p>
+      </div>
+      <div>
+        <h4 class="font-bold text-white mb-4">Quick Links</h4>
+        <ul class="space-y-2 text-sm">
+          <li><a href="#" class="hover:text-white transition">Privacy Policy</a></li>
+          <li><a href="#" class="hover:text-white transition">Terms of Service</a></li>
+          <li><a href="#" class="hover:text-white transition">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-bold text-white mb-4">Contact</h4>
+        <p class="text-sm">support@kara.ca</p>
+        <p class="mt-4 text-sm">Emergency? Call 1-833-KARA-911</p>
+      </div>
+      <div class="flex justify-center md:justify-start space-x-6 text-2xl">
+        <a href="#" class="hover:text-white"><i class="fab fa-twitter"></i></a>
+        <a href="#" class="hover:text-white"><i class="fab fa-linkedin"></i></a>
+      </div>
+    </div>
+    <div class="mt-12 text-center text-xs border-t border-gray-800 pt-8">
+      © 2025 KARA Child Protection System. All rights reserved.
+    </div>
+  </footer>
+
+  <!-- Mobile Menu Script -->
+  <script>
+    const btn = document.getElementById('mobileMenuButton');
+    const menu = document.getElementById('mobileMenu');
+    const navbar = document.getElementById('navbar');
+
+    btn.addEventListener('click', () => {
+      menu.classList.toggle('hidden');
+      btn.innerHTML = menu.classList.contains('hidden') 
+        ? '<i class="fas fa-bars text-2xl text-kara-blue"></i>' 
+        : '<i class="fas fa-times text-2xl text-kara-blue"></i>';
+    });
+
+    // Close menu when clicking a link
+    document.querySelectorAll('#mobileMenu a').forEach(link => {
+      link.addEventListener('click', () => {
+        menu.classList.add('hidden');
+        btn.innerHTML = '<i class="fas fa-bars text-2xl text-kara-blue"></i>';
+      });
+    });
+
+    // Sticky nav shrink on scroll (optional polish)
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        navbar.classList.add('py-3', 'shadow-lg');
+      } else {
+        navbar.classList.remove('py-3', 'shadow-lg');
+      }
+    });
+  </script>
+</body>
+</html>
