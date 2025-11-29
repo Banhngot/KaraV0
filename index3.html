@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KARA - Child Protection System (Canada)</title>
+  <title>KARA - Child Protection System (United States)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -83,6 +83,15 @@
     ];
     const DEMO_PASSWORD = "123";
 
+    const US_STATES = [
+      "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia",
+      "Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland",
+      "Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada",
+      "New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio",
+      "Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota",
+      "Tennessee","Texas","Utah","Vermont","Virginia","Washington","Washington, D.C.","West Virginia","Wisconsin","Wyoming"
+    ];
+
     const calculateAge = (dob) => {
       if (!dob) return null;
       const birth = new Date(dob);
@@ -100,8 +109,8 @@
     };
 
     function App() {
-      const savedCases = JSON.parse(localStorage.getItem("kara_cases") || "[]");
-      const savedUser = JSON.parse(localStorage.getItem("kara_current_user") || "null");
+      const savedCases = JSON.parse(localStorage.getItem("kara_cases_usa") || "[]");
+      const savedUser = JSON.parse(localStorage.getItem("kara_current_user_usa") || "null");
 
       const [user, setUser] = React.useState(savedUser);
       const [cases, setCases] = React.useState(savedCases);
@@ -114,20 +123,20 @@
       const [childName, setChildName] = React.useState("");
       const [childDOB, setChildDOB] = React.useState("");
       const [childGender, setChildGender] = React.useState("male");
-      const [province, setProvince] = React.useState("Ontario");
+      const [state, setState] = React.useState("California");
       const [content, setContent] = React.useState("");
       const [editingId, setEditingId] = React.useState(null);
 
       const [search, setSearch] = React.useState("");
       const [filterLevel, setFilterLevel] = React.useState("all");
-      const [filterProvince, setFilterProvince] = React.useState("all");
+      const [filterState, setFilterState] = React.useState("all");
       const [filterAgeMin, setFilterAgeMin] = React.useState("");
       const [filterAgeMax, setFilterAgeMax] = React.useState("");
       const [sortColumn, setSortColumn] = React.useState("date");
       const [sortOrder, setSortOrder] = React.useState("desc");
 
-      React.useEffect(() => { localStorage.setItem("kara_cases", JSON.stringify(cases)); }, [cases]);
-      React.useEffect(() => { localStorage.setItem("kara_current_user", JSON.stringify(user)); }, [user]);
+      React.useEffect(() => { localStorage.setItem("kara_cases_usa", JSON.stringify(cases)); }, [cases]);
+      React.useEffect(() => { localStorage.setItem("kara_current_user_usa", JSON.stringify(user)); }, [user]);
 
       const handleLogin = (e) => {
         e.preventDefault();
@@ -144,7 +153,7 @@
 
       const handleLogout = () => {
         setUser(null);
-        localStorage.removeItem("kara_current_user");
+        localStorage.removeItem("kara_current_user_usa");
       };
 
       const handleSubmit = (e) => {
@@ -169,7 +178,7 @@
           childAge: age,
           childDOB,
           childGender,
-          province,
+          state,
           content: content.trim(),
           date: new Date().toISOString().slice(0,10),
           prediction: detection.level,
@@ -186,28 +195,22 @@
           alert("Case added successfully!");
         }
 
-        setChildName(""); setChildDOB(""); setContent(""); setEditingId(null);
+        setChildName(""); setChildDOB(""); setContent(""); setEditingId(null); setCaseType("case_note");
       };
 
       const handleEdit = (c) => {
-        if (user.role === "user") {
-          alert("You do not have permission to edit");
-          return;
-        }
+        if (user.role === "user") { alert("You do not have permission to edit"); return; }
         setEditingId(c.id);
         setCaseType(c.type);
         setChildName(c.childName);
         setChildDOB(c.childDOB);
         setChildGender(c.childGender);
-        setProvince(c.province);
+        setState(c.state);
         setContent(c.content);
       };
 
       const handleDelete = (id) => {
-        if (user.role === "user") {
-          alert("You do not have permission to delete");
-          return;
-        }
+        if (user.role === "user") { alert("You do not have permission to delete"); return; }
         if (confirm("Delete this case permanently?")) {
           setCases(prev => prev.filter(c => c.id !== id));
         }
@@ -224,11 +227,8 @@
 
         const gender = { male: 0, female: 0, other: 0 };
         const ageGroups = { "0-4": 0, "5-9": 0, "10-12": 0 };
-        const provinces = {
-          "Alberta":0,"British Columbia":0,"Manitoba":0,"New Brunswick":0,
-          "Newfoundland and Labrador":0,"Nova Scotia":0,"Ontario":0,
-          "Prince Edward Island":0,"Quebec":0,"Saskatchewan":0
-        };
+        const states = {};
+        US_STATES.forEach(s => states[s] = 0);
         const dates = {};
 
         list.forEach(c => {
@@ -236,28 +236,27 @@
           if (c.childAge <= 4) ageGroups["0-4"]++;
           else if (c.childAge <= 9) ageGroups["5-9"]++;
           else ageGroups["10-12"]++;
-          provinces[c.province] = (provinces[c.province] || 0) + 1;
+          states[c.state] = (states[c.state] || 0) + 1;
           dates[c.date] = (dates[c.date] || 0) + 1;
         });
 
-        return { total, critical, high, medium, low, hasAlert, gender, ageGroups, provinces, dates, list };
+        return { total, critical, high, medium, low, hasAlert, gender, ageGroups, states, dates, list };
       }, [cases, user]);
 
       const chartRefs = {
         gender: React.useRef(null),
         age: React.useRef(null),
-        province: React.useRef(null),
+        state: React.useRef(null),
         trend: React.useRef(null),
-        bar: React.useRef(null) // đổi tên cho rõ: từ scatter → bar
+        bar: React.useRef(null)
       };
 
-      // Xuất Excel
       const exportToExcel = () => {
         const data = filteredAndSortedCases.map(c => ({
           "Child Name": c.childName,
           "Age": c.childAge,
           "Gender": c.childGender.charAt(0).toUpperCase() + c.childGender.slice(1),
-          "Province": c.province,
+          "State": c.state,
           "Risk Level": c.prediction.toUpperCase(),
           "Abuse Type": c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "None detected",
           "Date": c.date,
@@ -267,20 +266,19 @@
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "KARA Cases");
-        XLSX.writeFile(wb, `KARA_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+        XLSX.writeFile(wb, `KARA_USA_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
       };
 
-      // Xuất PDF
       const exportToPDF = async () => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const width = doc.internal.pageSize.getWidth();
 
         doc.setFontSize(22);
         doc.setTextColor(30, 64, 175);
-        doc.text("KARA Child Protection Report", width / 2, 25, { align: "center" });
+        doc.text("KARA Child Protection Report - USA", width / 2, 25, { align: "center" });
         doc.setFontSize(12);
         doc.setTextColor(100);
-        doc.text(`Generated: ${new Date().toLocaleDateString('en-CA')} | User: ${user.username} (${user.role})`, width / 2, 35, { align: "center" });
+        doc.text(`Generated: ${new Date().toLocaleDateString('en-US')} | User: ${user.username} (${user.role})`, width / 2, 35, { align: "center" });
 
         doc.setFontSize(12);
         doc.setTextColor(0);
@@ -291,8 +289,8 @@
         const charts = [
           { ref: chartRefs.gender.current, title: "Gender Distribution" },
           { ref: chartRefs.age.current, title: "Age Groups" },
-          { ref: chartRefs.province.current, title: "Cases by Province" },
-          { ref: chartRefs.bar.current, title: "Risk Level by Province (Bar)" }
+          { ref: chartRefs.state.current, title: "Cases by State" },
+          { ref: chartRefs.bar.current, title: "Risk Level by State" }
         ];
 
         for (const chart of charts) {
@@ -311,7 +309,6 @@
           }
         }
 
-        // Bảng chi tiết
         if (filteredAndSortedCases.length > 0) {
           if (yPos > 200) { doc.addPage(); yPos = 20; }
           doc.setFontSize(14);
@@ -320,14 +317,14 @@
           yPos += 10;
 
           const tableData = filteredAndSortedCases.map(c => [
-            c.childName, c.childAge, c.childGender, c.province,
+            c.childName, c.childAge, c.childGender, c.state,
             c.prediction.toUpperCase(),
             c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "-",
             c.date
           ]);
 
           doc.autoTable({
-            head: [["Name", "Age", "Gender", "Province", "Risk", "Type", "Date"]],
+            head: [["Name", "Age", "Gender", "State", "Risk", "Type", "Date"]],
             body: tableData,
             startY: yPos,
             theme: "grid",
@@ -338,12 +335,11 @@
 
         doc.setFontSize(10);
         doc.setTextColor(150);
-        doc.text("KARA Child Protection System • Confidential • © 2025", width / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
+        doc.text("KARA Child Protection System • United States • Confidential • © 2025", width / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
 
-        doc.save(`KARA_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+        doc.save(`KARA_USA_Report_${new Date().toISOString().slice(0,10)}.pdf`);
       };
 
-      // Tạo biểu đồ
       React.useEffect(() => {
         if (!window.Chart) return;
         const charts = {};
@@ -357,7 +353,6 @@
           }
         };
 
-        // Pie charts
         if (chartRefs.gender.current) {
           charts.gender = new Chart(chartRefs.gender.current, {
             type: "pie",
@@ -374,15 +369,14 @@
           });
         }
 
-        if (chartRefs.province.current) {
-          charts.province = new Chart(chartRefs.province.current, {
+        if (chartRefs.state.current) {
+          charts.state = new Chart(chartRefs.state.current, {
             type: "pie",
-            data: { labels: Object.keys(stats.provinces), datasets: [{ data: Object.values(stats.provinces), backgroundColor: ["#FF6B6B","#4ECDC4","#45B7D1","#96CEB4","#FECA57","#DDA0DD","#98D8C8","#F7DC6F7","#BB8082","#6C5CE7"] }] },
-            options: { ...pieOptions, plugins: { ...pieOptions.plugins, title: { text: "Cases by Province" } } }
+            data: { labels: Object.keys(stats.states).filter(k => stats.states[k] > 0), datasets: [{ data: Object.values(stats.states).filter(v => v > 0), backgroundColor: ["#FF6B6B","#4ECDC4","#45B7D1","#96CEB4","#FECA57","#DDA0DD","#98D8C8","#F7DC6F","#BB8082","#6C5CE7"] }] },
+            options: { ...pieOptions, plugins: { ...pieOptions.plugins, title: { text: "Cases by State" } } }
           });
         }
 
-        // Line chart - Trend
         if (chartRefs.trend.current && Object.keys(stats.dates).length > 0) {
           const sorted = Object.keys(stats.dates).sort();
           charts.trend = new Chart(chartRefs.trend.current, {
@@ -402,28 +396,20 @@
           });
         }
 
-        // BAR CHART (Stacked) - Thay thế hoàn toàn cho scatter
         if (chartRefs.bar.current) {
-          const provinceList = Object.keys(stats.provinces);
-
-          const counts = {
-            low: provinceList.map(() => 0),
-            medium: provinceList.map(() => 0),
-            high: provinceList.map(() => 0),
-            critical: provinceList.map(() => 0)
-          };
+          const stateList = Object.keys(stats.states);
+          const counts = { low: [], medium: [], high: [], critical: [] };
+          stateList.forEach(() => { counts.low.push(0); counts.medium.push(0); counts.high.push(0); counts.critical.push(0); });
 
           stats.list.forEach(c => {
-            const idx = provinceList.indexOf(c.province);
-            if (idx !== -1) {
-              counts[c.prediction][idx]++;
-            }
+            const idx = stateList.indexOf(c.state);
+            if (idx !== -1) counts[c.prediction][idx]++;
           });
 
           charts.bar = new Chart(chartRefs.bar.current, {
             type: "bar",
             data: {
-              labels: provinceList,
+              labels: stateList,
               datasets: [
                 { label: "Low", data: counts.low, backgroundColor: "rgba(34, 197, 94, 0.85)", stack: "risk" },
                 { label: "Medium", data: counts.medium, backgroundColor: "rgba(234, 179, 8, 0.85)", stack: "risk" },
@@ -435,11 +421,11 @@
               responsive: true,
               maintainAspectRatio: false,
               plugins: {
-                title: { display: true, text: "Risk Level Distribution by Province", font: { size: 18, weight: "bold" } },
+                title: { display: true, text: "Risk Level Distribution by State", font: { size: 18, weight: "bold" } },
                 legend: { position: "top" }
               },
               scales: {
-                x: { stacked: true, title: { display: true, text: "Province" } },
+                x: { stacked: true, title: { display: true, text: "State" } },
                 y: { stacked: true, beginAtZero: true, title: { display: true, text: "Number of Cases" }, ticks: { stepSize: 1 } }
               }
             }
@@ -456,7 +442,7 @@
           list = list.filter(c => c.childName.toLowerCase().includes(s) || c.content.toLowerCase().includes(s));
         }
         if (filterLevel !== "all") list = list.filter(c => c.prediction === filterLevel);
-        if (filterProvince !== "all") list = list.filter(c => c.province === filterProvince);
+        if (filterState !== "all") list = list.filter(c => c.state === filterState);
         if (filterAgeMin || filterAgeMax) {
           const min = filterAgeMin === "" ? -Infinity : Number(filterAgeMin);
           const max = filterAgeMax === "" ? Infinity : Number(filterAgeMax);
@@ -471,10 +457,10 @@
             const lvl = { low:0, medium:1, high:2, critical:3 };
             return order * (lvl[b.prediction] - lvl[a.prediction]);
           }
-          return order * (b.date.localeCompare(a.date)); // default: date
+          return order * (b.date.localeCompare(a.date));
         });
         return list;
-      }, [cases, user, search, filterLevel, filterProvince, filterAgeMin, filterAgeMax, sortColumn, sortOrder]);
+      }, [cases, user, search, filterLevel, filterState, filterAgeMin, filterAgeMax, sortColumn, sortOrder]);
 
       const toggleSort = (col) => {
         if (sortColumn === col) {
@@ -490,21 +476,21 @@
           {!user ? (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
               <div className="bg-white p-12 rounded-2xl shadow-2xl w-96 text-center">
-                <h2 className="text-4xl font-bold text-blue-700 mb-8">KARA Child Protection Database</h2>
+                <h2 className="text-4xl font-bold text-blue-700 mb-8">KARA Child Protection Database<br/><span className="text-2xl">United States</span></h2>
                 <form onSubmit={handleLogin} className="space-y-6">
                   <input className="w-full p-4 border-2 rounded-xl" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required />
                   <input className="w-full p-4 border-2 rounded-xl" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
                   <button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700">Login</button>
                 </form>
                 {loginErr && <p className="text-red-600 mt-4 font-bold">{loginErr}</p>}
-                <p className="mt-6 text-sm text-gray-600">Demo: <strong>admin</strong> / <strong>user</strong> / <strong>organization</strong> — Password: <strong>123</strong></p>
+                <p className="mt-6 text-sm text-gray-600">Demo accounts: <strong>admin</strong> / <strong>user</strong> / <strong>organization</strong> — Password: <strong>123</strong></p>
               </div>
             </div>
           ) : (
             <>
               <header className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-6 shadow-xl">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
-                  <h1 className="text-3xl font-bold">KARA - Child Protection System (Canada)</h1>
+                  <h1 className="text-3xl font-bold">KARA - Child Protection System (United States)</h1>
                   <div className="flex items-center gap-6">
                     <span>Welcome <strong>{user.username}</strong> ({user.role})</span>
                     <button onClick={handleLogout} className="bg-white text-blue-700 px-6 py-3 rounded-lg font-bold hover:bg-gray-100">Logout</button>
@@ -513,13 +499,12 @@
               </header>
 
               <div className="max-w-7xl mx-auto p-6 grid lg:grid-cols-2 gap-8">
-                {/* LEFT: Dashboard */}
                 <div className="bg-white rounded-2xl shadow-xl p-8 space-y-8">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-2xl font-bold text-blue-700">National Statistics</h3>
+                    <h3 className="text-2xl font-bold text-blue-700">National Statistics (USA)</h3>
                     <div className="flex gap-3">
-                      <button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg font-bold">Excel</button>
-                      <button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-lg font-bold">PDF Report</button>
+                      <button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg font-bold">Export Excel</button>
+                      <button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-lg font-bold">Export PDF</button>
                     </div>
                   </div>
 
@@ -534,7 +519,7 @@
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="chart-pie-container"><canvas ref={chartRefs.gender}></canvas></div>
                     <div className="chart-pie-container"><canvas ref={chartRefs.age}></canvas></div>
-                    <div className="chart-pie-container"><canvas ref={chartRefs.province}></canvas></div>
+                    <div className="chart-pie-container"><canvas ref={chartRefs.state}></canvas></div>
                   </div>
 
                   <div className="bg-gray-50 rounded-xl p-6">
@@ -542,7 +527,7 @@
                   </div>
 
                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6">
-                    <h4 className="text-xl font-bold text-purple-800 mb-4 text-center">Risk Level Distribution by Province</h4>
+                    <h4 className="text-xl font-bold text-purple-800 mb-4 text-center">Risk Level Distribution by State</h4>
                     <div className="chart-bar-container">
                       <canvas ref={chartRefs.bar}></canvas>
                     </div>
@@ -555,7 +540,6 @@
                   </div>
                 </div>
 
-                {/* RIGHT: Form */}
                 <div className="bg-white rounded-2xl shadow-xl p-8">
                   <h3 className="text-2xl font-bold text-blue-700 mb-6">{editingId ? "Edit Case" : "New Case Entry"}</h3>
                   {stats.hasAlert && (
@@ -576,17 +560,8 @@
                       <option value="female">Female</option>
                       <option value="other">Other</option>
                     </select>
-                    <select value={province} onChange={e=>setProvince(e.target.value)} className="w-full p-4 border-2 rounded-xl bg-blue-50 font-medium">
-                      <option value="Alberta">Alberta</option>
-                      <option value="British Columbia">British Columbia</option>
-                      <option value="Manitoba">Manitoba</option>
-                      <option value="New Brunswick">New Brunswick</option>
-                      <option value="Newfoundland and Labrador">Newfoundland and Labrador</option>
-                      <option value="Nova Scotia">Nova Scotia</option>
-                      <option value="Ontario">Ontario</option>
-                      <option value="Prince Edward Island">Prince Edward Island</option>
-                      <option value="Quebec">Quebec</option>
-                      <option value="Saskatchewan">Saskatchewan</option>
+                    <select value={state} onChange={e=>setState(e.target.value)} className="w-full p-4 border-2 rounded-xl bg-blue-50 font-medium">
+                      {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <textarea required placeholder="Describe the incident or observations..." value={content} onChange={e=>setContent(e.target.value)} className="w-full p-4 border-2 rounded-xl h-40 resize-none"></textarea>
                     <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-5 rounded-xl font-bold text-xl shadow-lg">
@@ -596,38 +571,28 @@
                 </div>
               </div>
 
-              {/* Case History Table */}
               {(user.role === "admin" || user.role === "organization") && (
                 <div className="max-w-7xl mx-auto p-6">
                   <div className="bg-white rounded-2xl shadow-xl p-8">
                     <h3 className="text-2xl font-bold text-blue-700 mb-6">Case History ({filteredAndSortedCases.length} cases)</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                      <input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} className="px-5 py-3 border-2 rounded-xl" />
+                      <input placeholder="Search name or notes..." value={search} onChange={e=>setSearch(e.target.value)} className="px-5 py-3 border-2 rounded-xl" />
                       <select value={filterLevel} onChange={e=>setFilterLevel(e.target.value)} className="px-5 py-3 border-2 rounded-xl">
-                        <option value="all">All Levels</option>
+                        <option value="all">All Risk Levels</option>
                         <option value="low">Low</option>
                         <option value="medium">Medium</option>
                         <option value="high">High</option>
                         <option value="critical">Critical</option>
                       </select>
-                      <select value={filterProvince} onChange={e=>setFilterProvince(e.target.value)} className="px-5 py-3 border-2 rounded-xl">
-                        <option value="all">All Provinces</option>
-                        <option value="Ontario">Ontario</option>
-                        <option value="Quebec">Quebec</option>
-                        <option value="British Columbia">British Columbia</option>
-                        <option value="Alberta">Alberta</option>
-                        <option value="Manitoba">Manitoba</option>
-                        <option value="Saskatchewan">Saskatchewan</option>
-                        <option value="Nova Scotia">Nova Scotia</option>
-                        <option value="New Brunswick">New Brunswick</option>
-                        <option value="Newfoundland and Labrador">Newfoundland and Labrador</option>
-                        <option value="Prince Edward Island">Prince Edward Island</option>
+                      <select value={filterState} onChange={e=>setFilterState(e.target.value)} className="px-5 py-3 border-2 rounded-xl">
+                        <option value="all">All States</option>
+                        {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <div className="flex gap-2">
                         <input type="number" placeholder="Min age" value={filterAgeMin} onChange={e=>setFilterAgeMin(e.target.value)} className="w-24 px-4 py-3 border-2 rounded-xl" />
                         <input type="number" placeholder="Max age" value={filterAgeMax} onChange={e=>setFilterAgeMax(e.target.value)} className="w-24 px-4 py-3 border-2 rounded-xl" />
                       </div>
-                      <button onClick={()=>{setSearch("");setFilterLevel("all");setFilterProvince("all");setFilterAgeMin("");setFilterAgeMax("");}} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700">Clear</button>
+                      <button onClick={()=>{setSearch("");setFilterLevel("all");setFilterState("all");setFilterAgeMin("");setFilterAgeMax("");}} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700">Clear Filters</button>
                     </div>
 
                     <div className="overflow-x-auto rounded-xl border">
@@ -639,7 +604,7 @@
                             <th className="p-4 cursor-pointer" onClick={()=>toggleSort("age")}>Age</th>
                             <th className="p-4 cursor-pointer" onClick={()=>toggleSort("level")}>Risk Level</th>
                             <th className="p-4">Type</th>
-                            <th className="p-4">Province</th>
+                            <th className="p-4">State</th>
                             <th className="p-4 cursor-pointer" onClick={()=>toggleSort("date")}>Date</th>
                             <th className="p-4">Actions</th>
                           </tr>
@@ -657,7 +622,7 @@
                                   {c.prediction.toUpperCase()}
                                 </td>
                                 <td className="p-4">{c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "-"}</td>
-                                <td className="p-4">{c.province}</td>
+                                <td className="p-4">{c.state}</td>
                                 <td className="p-4">{c.date}</td>
                                 <td className="p-4">
                                   <button onClick={()=>handleEdit(c)} className="bg-blue-600 text-white px-4 py-2 rounded-lg mr-2 hover:bg-blue-700">Edit</button>
