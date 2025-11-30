@@ -3,99 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KARA - Child Protection System (United States)</title>
+  <title>KARA - Child Protection System AI (United States)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .chart-pie-container {
-      width: 100%; max-width: 420px; height: 420px; margin: 0 auto;
-      background: white; border-radius: 1rem; box-shadow: 0 6px 25px rgba(0,0,0,0.08);
-      padding: 20px; display: flex; align-items: center; justify-content: center;
-    }
-    .chart-bar-container {
-      width: 100%; height: 520px; background: white; border-radius: 1rem;
-      box-shadow: 0 6px 25px rgba(0,0,0,0.08); padding: 20px;
-    }
+    .chart-pie-container { width: 100%; max-width: 420px; height: 420px; margin: 0 auto; background: white; border-radius: 1rem; box-shadow: 0 6px 25px rgba(0,0,0,0.08); padding: 20px; display: flex; align-items: center; justify-content: center; }
+    .chart-bar-container { width: 100%; height: 520px; background: white; border-radius: 1rem; box-shadow: 0 6px 25px rgba(0,0,0,0.08); padding: 20px; }
     canvas { width: 100% !important; height: 100% !important; }
+    .ai-badge { background: linear-gradient(135deg, #8B5CF6, #EC8499); color: white; padding: 4px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: bold; }
   </style>
 </head>
 <body class="bg-gray-100">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { jsPDF } = window.jspdf;
+    const HF_TOKEN = "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";
 
-    const ABUSE_INDICATORS = {
-      neglect: {
-        low:      ["delay","ignore","late","forget","miss"],
-        medium:   ["overlook","omit","neglect","fail to provide"],
-        high:     ["deny care","deny food","deny safety","withhold","refuse treatment"],
-        critical: ["abandon","endanger","leave alone","desert"]
-      },
-      abuse: {
-        low:      ["push","grab","poke","shove","slap"],
-        medium:   ["hit","strike","kick","pull hair","pinch","spank hard"],
-        high:     ["punch","choke","beat","whip","throw","slam"],
-        critical: ["assault","stab","strangle","burn","bludgeon","rape","sexual abuse"]
-      }
-    };
-
-    function detectAbuseLevel(content) {
-      const text = content.trim().toLowerCase();
-      let count = { low: 0, medium: 0, high: 0, critical: 0 };
-      let detectedType = "none";
-
-      const check = (list, level) => {
-        list.forEach(word => {
-          if (text.includes(word)) {
-            count[level]++;
-            if (detectedType === "none") detectedType = (level === "critical" || level === "high" || level === "medium") ? "abuse" : "neglect";
-          }
+    async function detectAbuseLevelAI(text) {
+      if (!text || text.trim().length < 10) return { level: "low", type: "none" };
+      try {
+        const response = await fetch("https://api-inference.huggingface.co/models/facebook/bart-large-mnli", {
+          method: "POST", headers: { "Authorization": `Bearer ${HF_TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ inputs: text.trim(), parameters: { candidate_labels: [
+            "critical child physical abuse or sexual abuse", "severe child neglect or abandonment",
+            "high risk of child abuse or neglect", "moderate concern for child welfare",
+            "low or no risk of child maltreatment", "normal child behavior or safe situation"
+          ]}})
         });
-      };
+        if (!response.ok) throw new Error();
+        const result = await response.json();
+        const topLabel = result.labels[0].toLowerCase();
+        if (topLabel.includes("critical") || topLabel.includes("sexual") || topLabel.includes("severe neglect"))
+          return { level: "critical", type: topLabel.includes("sexual") ? "sexual abuse" : "abuse" };
+        if (topLabel.includes("high risk")) return { level: "high", type: "abuse" };
+        if (topLabel.includes("moderate") || topLabel.includes("concern")) return { level: "medium", type: "neglect" };
+        return { level: "low", type: "none" };
+      } catch { return detectAbuseLevelFallback(text); }
+    }
 
-      Object.values(ABUSE_INDICATORS.neglect).forEach((arr, i) => check(arr, ["low","medium","high","critical"][i]));
-      Object.values(ABUSE_INDICATORS.abuse).forEach((arr, i) => check(arr, ["low","medium","high","critical"][i]));
-
-      if (count.critical > 0) return { level: "critical", type: detectedType === "none" ? "neglect" : detectedType };
-      if (count.high >= 2) return { level: "critical", type: "abuse" };
-      if (count.medium >= 3) return { level: "high", type: detectedType };
-      if (count.low >= 4) return { level: "medium", type: detectedType };
-      if (count.high > 0) return { level: "high", type: "abuse" };
-      if (count.medium > 0) return { level: "medium", type: detectedType };
-      if (count.low > 0) return { level: "low", type: detectedType };
+    function detectAbuseLevelFallback(content) {
+      const text = content.toLowerCase();
+      const critical = ["rape","sexual abuse","burn","strangle","stab","assault","abandon","starve"];
+      const high = ["hit","beat","choke","punch","kick","whip","slam","leave alone","no food"];
+      const medium = ["slap","spank hard","grab","push","hungry","dirty clothes","late pickup"];
+      if (critical.some(w => text.includes(w))) return { level: "critical", type: "abuse" };
+      if (high.filter(w => text.includes(w)).length >= 2) return { level: "high", type: "abuse" };
+      if (medium.some(w => text.includes(w))) return { level: "medium", type: "neglect" };
       return { level: "low", type: "none" };
     }
 
-    const USERS = [
-      { username: "admin", role: "admin" },
-      { username: "user", role: "user" },
-      { username: "organization", role: "organization" }
-    ];
-    const DEMO_PASSWORD = "123";
-
-    const US_STATES = [
-      "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia",
-      "Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland",
-      "Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada",
-      "New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio",
-      "Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota",
-      "Tennessee","Texas","Utah","Vermont","Virginia","Washington","Washington, D.C.","West Virginia","Wisconsin","Wyoming"
-    ];
+    const US_STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","Washington, D.C.","West Virginia","Wisconsin","Wyoming"];
 
     const calculateAge = (dob) => {
       if (!dob) return null;
-      const birth = new Date(dob);
-      const today = new Date();
+      const birth = new Date(dob); const today = new Date();
       let age = today.getFullYear() - birth.getFullYear();
       const m = today.getMonth() - birth.getMonth();
       if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
@@ -109,12 +76,11 @@
     };
 
     function App() {
-      const savedCases = JSON.parse(localStorage.getItem("kara_cases_usa") || "[]");
-      const savedUser = JSON.parse(localStorage.getItem("kara_current_user_usa") || "null");
+      const savedCases = JSON.parse(localStorage.getItem("kara_cases_usa_ai") || "[]");
+      const savedUser = JSON.parse(localStorage.getItem("kara_current_user_usa_ai") || "null");
 
       const [user, setUser] = React.useState(savedUser);
       const [cases, setCases] = React.useState(savedCases);
-
       const [username, setUsername] = React.useState("");
       const [password, setPassword] = React.useState("");
       const [loginErr, setLoginErr] = React.useState("");
@@ -126,7 +92,9 @@
       const [state, setState] = React.useState("California");
       const [content, setContent] = React.useState("");
       const [editingId, setEditingId] = React.useState(null);
+      const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
+      // TÌM KIẾM + LỌC
       const [search, setSearch] = React.useState("");
       const [filterLevel, setFilterLevel] = React.useState("all");
       const [filterState, setFilterState] = React.useState("all");
@@ -135,87 +103,56 @@
       const [sortColumn, setSortColumn] = React.useState("date");
       const [sortOrder, setSortOrder] = React.useState("desc");
 
-      React.useEffect(() => { localStorage.setItem("kara_cases_usa", JSON.stringify(cases)); }, [cases]);
-      React.useEffect(() => { localStorage.setItem("kara_current_user_usa", JSON.stringify(user)); }, [user]);
+      // AI Report
+      const [llamaReport, setLlamaReport] = React.useState("");
+      const [isGeneratingReport, setIsGeneratingReport] = React.useState(false);
+      const [reportCaseId, setReportCaseId] = React.useState(null);
+
+      React.useEffect(() => localStorage.setItem("kara_cases_usa_ai", JSON.stringify(cases)), [cases]);
+      React.useEffect(() => localStorage.setItem("kara_current_user_usa_ai", JSON.stringify(user)), [user]);
 
       const handleLogin = (e) => {
         e.preventDefault();
-        const found = USERS.find(u => u.username === username && password === DEMO_PASSWORD);
-        if (found) {
-          setUser(found);
-          setLoginErr("");
-          setUsername("");
-          setPassword("");
-        } else {
-          setLoginErr("Incorrect username or password");
-        }
+        const found = [{username:"admin",role:"admin"},{username:"user",role:"user"},{username:"organization",role:"organization"}]
+          .find(u => u.username === username && password === "123");
+        if (found) { setUser(found); setLoginErr(""); setUsername(""); setPassword(""); }
+        else setLoginErr("Incorrect username or password");
       };
 
-      const handleLogout = () => {
-        setUser(null);
-        localStorage.removeItem("kara_current_user_usa");
-      };
+      const handleLogout = () => { setUser(null); localStorage.removeItem("kara_current_user_usa_ai"); };
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!childName.trim() || !childDOB || !content.trim()) {
-          alert("Please fill all required fields");
-          return;
-        }
-
+        if (!childName.trim() || !childDOB || !content.trim()) return alert("Please fill all required fields");
         const age = calculateAge(childDOB);
-        if (age === null || age < 0 || age > 12) {
-          alert("Only children 0–12 years old are accepted");
-          return;
-        }
+        if (age === null || age > 12) return alert("Only children 0–12 years old are accepted");
 
-        const detection = detectAbuseLevel(content);
+        setIsAnalyzing(true);
+        const detection = await detectAbuseLevelAI(content);
+        setIsAnalyzing(false);
 
         const newCase = {
-          id: editingId || Date.now(),
-          type: caseType,
-          childName: childName.trim(),
-          childAge: age,
-          childDOB,
-          childGender,
-          state,
-          content: content.trim(),
-          date: new Date().toISOString().slice(0,10),
-          prediction: detection.level,
-          abuseType: detection.type,
+          id: editingId || Date.now(), type: caseType, childName: childName.trim(), childAge: age,
+          childDOB, childGender, state, content: content.trim(), date: new Date().toISOString().slice(0,10),
+          prediction: detection.level, abuseType: detection.type,
           createdBy: editingId ? cases.find(c => c.id === editingId).createdBy : user.role,
           notified: detection.level === "critical"
         };
 
         if (editingId) {
           setCases(prev => prev.map(c => c.id === editingId ? newCase : c));
-          alert("Case updated successfully!");
+          alert("Case updated!");
         } else {
           setCases(prev => [newCase, ...prev]);
-          alert("Case added successfully!");
+          detection.level === "critical" ? alert("CRITICAL CASE – IMMEDIATE ACTION REQUIRED!") : alert("Case added!");
         }
-
         setChildName(""); setChildDOB(""); setContent(""); setEditingId(null); setCaseType("case_note");
       };
 
-      const handleEdit = (c) => {
-        if (user.role === "user") { alert("You do not have permission to edit"); return; }
-        setEditingId(c.id);
-        setCaseType(c.type);
-        setChildName(c.childName);
-        setChildDOB(c.childDOB);
-        setChildGender(c.childGender);
-        setState(c.state);
-        setContent(c.content);
-      };
+      const handleEdit = (c) => { if (user.role === "user") return alert("No permission"); setEditingId(c.id); setCaseType(c.type); setChildName(c.childName); setChildDOB(c.childDOB); setChildGender(c.childGender); setState(c.state); setContent(c.content); };
+      const handleDelete = (id) => { if (user.role === "user") return alert("No permission"); if (confirm("Delete permanently?")) setCases(prev => prev.filter(c => c.id !== id)); };
 
-      const handleDelete = (id) => {
-        if (user.role === "user") { alert("You do not have permission to delete"); return; }
-        if (confirm("Delete this case permanently?")) {
-          setCases(prev => prev.filter(c => c.id !== id));
-        }
-      };
-
+      // STATISTICS
       const stats = React.useMemo(() => {
         const list = user?.role === "organization" ? cases : cases.filter(c => c.createdBy !== "organization");
         const total = list.length;
@@ -224,18 +161,14 @@
         const medium = list.filter(c => c.prediction === "medium").length;
         const low = list.filter(c => c.prediction === "low").length;
         const hasAlert = list.some(c => c.notified);
-
         const gender = { male: 0, female: 0, other: 0 };
         const ageGroups = { "0-4": 0, "5-9": 0, "10-12": 0 };
-        const states = {};
-        US_STATES.forEach(s => states[s] = 0);
+        const states = {}; US_STATES.forEach(s => states[s] = 0);
         const dates = {};
 
         list.forEach(c => {
-          gender[c.childGender]++;
-          if (c.childAge <= 4) ageGroups["0-4"]++;
-          else if (c.childAge <= 9) ageGroups["5-9"]++;
-          else ageGroups["10-12"]++;
+          gender[c.childGender]++; 
+          if (c.childAge <= 4) ageGroups["0-4"]++; else if (c.childAge <= 9) ageGroups["5-9"]++; else ageGroups["10-12"]++;
           states[c.state] = (states[c.state] || 0) + 1;
           dates[c.date] = (dates[c.date] || 0) + 1;
         });
@@ -243,32 +176,53 @@
         return { total, critical, high, medium, low, hasAlert, gender, ageGroups, states, dates, list };
       }, [cases, user]);
 
-      const chartRefs = {
-        gender: React.useRef(null),
-        age: React.useRef(null),
-        state: React.useRef(null),
-        trend: React.useRef(null),
-        bar: React.useRef(null)
-      };
+      // CHARTS
+      const chartRefs = { gender: React.useRef(null), age: React.useRef(null), state: React.useRef(null), trend: React.useRef(null), bar: React.useRef(null) };
 
+      React.useEffect(() => {
+        if (!window.Chart) return;
+        const charts = {};
+
+        if (chartRefs.gender.current) charts.gender = new Chart(chartRefs.gender.current, { type: "pie", data: { labels: ["Male","Female","Other"], datasets: [{ data: Object.values(stats.gender), backgroundColor: ["#3B82F6","#EC4899","#6B7280"] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: "Gender", font: { size: 18 } } } } });
+        if (chartRefs.age.current) charts.age = new Chart(chartRefs.age.current, { type: "pie", data: { labels: ["0–4","5–9","10–12"], datasets: [{ data: [stats.ageGroups["0-4"], stats.ageGroups["5-9"], stats.ageGroups["10-12"]], backgroundColor: ["#10B981","#F59E0B","#8B5CF6"] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: "Age Groups", font: { size: 18 } } } } });
+        if (chartRefs.state.current) {
+          const labels = Object.keys(stats.states).filter(k => stats.states[k] > 0);
+          charts.state = new Chart(chartRefs.state.current, { type: "pie", data: { labels, datasets: [{ data: labels.map(k => stats.states[k]), backgroundColor: ["#FF6B6B","#4ECDC4","#45B7D1","#96CEB4","#FECA57","#DDA0DD","#98D8C8","#F7DC6F","#BB8082","#6C5CE7"] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: "Cases by State", font: { size: 18 } } } } });
+        }
+        if (chartRefs.trend.current && Object.keys(stats.dates).length) {
+          const sorted = Object.keys(stats.dates).sort();
+          charts.trend = new Chart(chartRefs.trend.current, { type: "line", data: { labels: sorted, datasets: [{ label: "Cases per Day", data: sorted.map(d => stats.dates[d]), borderColor: "#EF4444", backgroundColor: "rgba(239,68,68,0.1)", tension: 0.3, fill: true }] }, options: { responsive: true, plugins: { title: { display: true, text: "Trend Over Time", font: { size: 18 } } } } });
+        }
+        if (chartRefs.bar.current) {
+          const stateList = Object.keys(stats.states).filter(s => stats.states[s] > 0);
+          const counts = { low: [], medium: [], high: [], critical: [] };
+          stateList.forEach(() => { counts.low.push(0); counts.medium.push(0); counts.high.push(0); counts.critical.push(0); });
+          stats.list.forEach(c => { const idx = stateList.indexOf(c.state); if (idx !== -1) counts[c.prediction][idx]++; });
+          charts.bar = new Chart(chartRefs.bar.current, { type: "bar", data: { labels: stateList, datasets: [
+            { label: "Low", data: counts.low, backgroundColor: "rgba(34,197,94,0.85)", stack: "risk" },
+            { label: "Medium", data: counts.medium, backgroundColor: "rgba(234,179,8,0.85)", stack: "risk" },
+            { label: "High", data: counts.high, backgroundColor: "rgba(249,115,22,0.85)", stack: "risk" },
+            { label: "Critical", data: counts.critical, backgroundColor: "rgba(239,68,68,0.95)", stack: "risk" }
+          ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: "Risk Level by State", font: { size: 18 } }, legend: { position: "top" } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } } });
+        }
+
+        return () => Object.values(charts).forEach(c => c?.destroy());
+      }, [stats]);
+
+      // EXPORT EXCEL
       const exportToExcel = () => {
         const data = filteredAndSortedCases.map(c => ({
-          "Child Name": c.childName,
-          "Age": c.childAge,
-          "Gender": c.childGender.charAt(0).toUpperCase() + c.childGender.slice(1),
-          "State": c.state,
-          "Risk Level": c.prediction.toUpperCase(),
-          "Abuse Type": c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "None detected",
-          "Date": c.date,
-          "Notes": c.content.substring(0, 200) + (c.content.length > 200 ? "..." : "")
+          "Child Name": c.childName, "Age": c.childAge, "Gender": c.childGender.charAt(0).toUpperCase() + c.childGender.slice(1),
+          "State": c.state, "Risk Level": c.prediction.toUpperCase(),
+          "Abuse Type": c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical/Sexual Abuse" : "None",
+          "Date": c.date, "Notes": c.content.substring(0,200)+(c.content.length>200?"...":"")
         }));
-
         const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "KARA Cases");
-        XLSX.writeFile(wb, `KARA_USA_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "KARA Cases");
+        XLSX.writeFile(wb, `KARA_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
       };
 
+      // EXPORT PDF
       const exportToPDF = async () => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const width = doc.internal.pageSize.getWidth();
@@ -340,180 +294,137 @@
         doc.save(`KARA_USA_Report_${new Date().toISOString().slice(0,10)}.pdf`);
       };
 
-      React.useEffect(() => {
-        if (!window.Chart) return;
-        const charts = {};
-
-        const pieOptions = {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: "bottom", labels: { padding: 20, font: { size: 14 } } },
-            title: { display: true, padding: 20, font: { size: 18, weight: "bold" } }
-          }
-        };
-
-        if (chartRefs.gender.current) {
-          charts.gender = new Chart(chartRefs.gender.current, {
-            type: "pie",
-            data: { labels: ["Male","Female","Other"], datasets: [{ data: Object.values(stats.gender), backgroundColor: ["#3B82F6","#EC4899","#6B7280"] }] },
-            options: { ...pieOptions, plugins: { ...pieOptions.plugins, title: { text: "Gender Distribution" } } }
-          });
-        }
-
-        if (chartRefs.age.current) {
-          charts.age = new Chart(chartRefs.age.current, {
-            type: "pie",
-            data: { labels: ["0–4 yrs","5–9 yrs","10–12 yrs"], datasets: [{ data: [stats.ageGroups["0-4"], stats.ageGroups["5-9"], stats.ageGroups["10-12"]], backgroundColor: ["#10B981","#F59E0B","#8B5CF6"] }] },
-            options: { ...pieOptions, plugins: { ...pieOptions.plugins, title: { text: "Age Groups" } } }
-          });
-        }
-
-        if (chartRefs.state.current) {
-          charts.state = new Chart(chartRefs.state.current, {
-            type: "pie",
-            data: { labels: Object.keys(stats.states).filter(k => stats.states[k] > 0), datasets: [{ data: Object.values(stats.states).filter(v => v > 0), backgroundColor: ["#FF6B6B","#4ECDC4","#45B7D1","#96CEB4","#FECA57","#DDA0DD","#98D8C8","#F7DC6F","#BB8082","#6C5CE7"] }] },
-            options: { ...pieOptions, plugins: { ...pieOptions.plugins, title: { text: "Cases by State" } } }
-          });
-        }
-
-        if (chartRefs.trend.current && Object.keys(stats.dates).length > 0) {
-          const sorted = Object.keys(stats.dates).sort();
-          charts.trend = new Chart(chartRefs.trend.current, {
-            type: "line",
-            data: {
-              labels: sorted,
-              datasets: [{
-                label: "Cases per Day",
-                data: sorted.map(d => stats.dates[d]),
-                borderColor: "#EF4444",
-                backgroundColor: "rgba(239,68,68,0.1)",
-                tension: 0.3,
-                fill: true
-              }]
-            },
-            options: { responsive: true, plugins: { title: { display: true, text: "Case Trend Over Time", font: { size: 18, weight: "bold" } } } }
-          });
-        }
-
-        if (chartRefs.bar.current) {
-          const stateList = Object.keys(stats.states);
-          const counts = { low: [], medium: [], high: [], critical: [] };
-          stateList.forEach(() => { counts.low.push(0); counts.medium.push(0); counts.high.push(0); counts.critical.push(0); });
-
-          stats.list.forEach(c => {
-            const idx = stateList.indexOf(c.state);
-            if (idx !== -1) counts[c.prediction][idx]++;
-          });
-
-          charts.bar = new Chart(chartRefs.bar.current, {
-            type: "bar",
-            data: {
-              labels: stateList,
-              datasets: [
-                { label: "Low", data: counts.low, backgroundColor: "rgba(34, 197, 94, 0.85)", stack: "risk" },
-                { label: "Medium", data: counts.medium, backgroundColor: "rgba(234, 179, 8, 0.85)", stack: "risk" },
-                { label: "High", data: counts.high, backgroundColor: "rgba(249, 115, 22, 0.85)", stack: "risk" },
-                { label: "Critical", data: counts.critical, backgroundColor: "rgba(239, 68, 68, 0.95)", stack: "risk" }
-              ]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                title: { display: true, text: "Risk Level Distribution by State", font: { size: 18, weight: "bold" } },
-                legend: { position: "top" }
-              },
-              scales: {
-                x: { stacked: true, title: { display: true, text: "State" } },
-                y: { stacked: true, beginAtZero: true, title: { display: true, text: "Number of Cases" }, ticks: { stepSize: 1 } }
-              }
-            }
-          });
-        }
-
-        return () => Object.values(charts).forEach(c => c?.destroy());
-      }, [stats]);
-
+      // FILTER + SORT
       const filteredAndSortedCases = React.useMemo(() => {
         let list = user?.role === "organization" ? cases : cases.filter(c => c.createdBy !== "organization");
-        if (search) {
-          const s = search.toLowerCase();
-          list = list.filter(c => c.childName.toLowerCase().includes(s) || c.content.toLowerCase().includes(s));
-        }
+        if (search) list = list.filter(c => c.childName.toLowerCase().includes(search.toLowerCase()) || c.content.toLowerCase().includes(search.toLowerCase()));
         if (filterLevel !== "all") list = list.filter(c => c.prediction === filterLevel);
         if (filterState !== "all") list = list.filter(c => c.state === filterState);
         if (filterAgeMin || filterAgeMax) {
-          const min = filterAgeMin === "" ? -Infinity : Number(filterAgeMin);
-          const max = filterAgeMax === "" ? Infinity : Number(filterAgeMax);
+          const min = filterAgeMin==="" ? -Infinity : Number(filterAgeMin);
+          const max = filterAgeMax==="" ? Infinity : Number(filterAgeMax);
           list = list.filter(c => c.childAge >= min && c.childAge <= max);
         }
-
         const order = sortOrder === "asc" ? 1 : -1;
-        list.sort((a, b) => {
+        list.sort((a,b) => {
           if (sortColumn === "name") return order * a.childName.localeCompare(b.childName);
           if (sortColumn === "age") return order * (a.childAge - b.childAge);
-          if (sortColumn === "level") {
-            const lvl = { low:0, medium:1, high:2, critical:3 };
-            return order * (lvl[b.prediction] - lvl[a.prediction]);
-          }
+          if (sortColumn === "level") { const lvl = {low:0,medium:1,high:2,critical:3}; return order * (lvl[b.prediction] - lvl[a.prediction]); }
           return order * (b.date.localeCompare(a.date));
         });
         return list;
       }, [cases, user, search, filterLevel, filterState, filterAgeMin, filterAgeMax, sortColumn, sortOrder]);
 
-      const toggleSort = (col) => {
-        if (sortColumn === col) {
-          setSortOrder(prev => prev === "asc" ? "desc" : "asc");
-        } else {
-          setSortColumn(col);
-          setSortOrder("desc");
-        }
-      };
+      const toggleSort = (col) => { if (sortColumn === col) setSortOrder(prev => prev === "asc" ? "desc" : "asc"); else { setSortColumn(col); setSortOrder("desc"); } };
+      const clearFilters = () => { setSearch(""); setFilterLevel("all"); setFilterState("all"); setFilterAgeMin(""); setFilterAgeMax(""); };
+
+      // LLAMA 3 REPORT
+      async function generateLlamaReport(caseData) {
+        if (!caseData) return;
+        setIsGeneratingReport(true);
+        const risk = caseData.prediction;
+        const prompt = `You are a U.S. Child Protective Services officer. Write a concise official report.
+
+Child: ${caseData.childName}, ${caseData.childAge} yo, ${caseData.childGender}, ${caseData.state}
+Risk Level: ${risk.toUpperCase()}
+Incident: ${caseData.content}
+
+Provide exactly these 4 sections:
+1. Case Summary (3–5 sentences)
+2. Recommended Immediate Actions (bullet points – different per risk level)
+3. Agencies to Notify
+4. Legal Mandates (federal + ${caseData.state})
+
+CRITICAL → 911, remove child
+HIGH → CPS within 24h
+MEDIUM → CPS within 72h
+LOW → Monitor only`;
+
+        try {
+          const res = await fetch("https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-11B-Vision-Instruct", {
+            method: "POST", headers: { Authorization: `Bearer ${HF_TOKEN}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 600, temperature: 0.6 } }),
+          });
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          setLlamaReport(data[0]?.generated_text?.replace(prompt, "").trim() || "Report generated.");
+        } catch {
+          const fallbacks = {
+            critical: `*** CRITICAL – LIFE-THREATENING ***
+CASE SUMMARY: Immediate danger to ${caseData.childName}.
+ACTIONS:
+• CALL 911 NOW
+• Remove child immediately
+• Forensic exam required
+AGENCIES: 911, CPS Emergency, Child Advocacy Center
+LEGAL: Federal CAPTA + ${caseData.state} immediate removal required`,
+            high: `*** HIGH RISK ***
+ACTIONS:
+• File CPS report within 24 hours
+• Safety plan today
+AGENCIES: State CPS, Local police`,
+            medium: `*** MODERATE RISK ***
+ACTIONS:
+• CPS report within 72 hours
+• Offer family services`,
+            low: `*** LOW RISK ***
+ACTIONS:
+• Document & monitor only`
+          };
+          setLlamaReport(fallbacks[risk] || fallbacks.low);
+        } finally { setIsGeneratingReport(false); }
+      }
+
+      const openLlamaReport = (c) => { setReportCaseId(c.id); setLlamaReport(""); generateLlamaReport(c); };
+      const closeLlamaReport = () => { setReportCaseId(null); setLlamaReport(""); };
 
       return (
         <div className="min-h-screen bg-gray-50">
           {!user ? (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
               <div className="bg-white p-12 rounded-2xl shadow-2xl w-96 text-center">
-                <h2 className="text-4xl font-bold text-blue-700 mb-8">KARA Child Protection Database<br/><span className="text-2xl">United States</span></h2>
+                <h2 className="text-4xl font-bold text-blue-700 mb-2">KARA AI</h2>
+                <p className="text-xl text-indigo-600 mb-8">Child Protection System • United States</p>
                 <form onSubmit={handleLogin} className="space-y-6">
-                  <input className="w-full p-4 border-2 rounded-xl" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required />
-                  <input className="w-full p-4 border-2 rounded-xl" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
-                  <button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700">Login</button>
+                  <input className="w-full p-4 border-2 rounded-xl" placeholder="Username" value={username} onChange={e=>setUsername(e.target.value)} required />
+                  <input className="w-full p-4 border-2 rounded-xl" type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required />
+                  <button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg">Login</button>
                 </form>
                 {loginErr && <p className="text-red-600 mt-4 font-bold">{loginErr}</p>}
-                <p className="mt-6 text-sm text-gray-600">Demo accounts: <strong>admin</strong> / <strong>user</strong> / <strong>organization</strong> — Password: <strong>123</strong></p>
+                <p className="mt-6 text-sm text-gray-600">Demo: admin / user / organization – Password: 123</p>
               </div>
             </div>
           ) : (
             <>
               <header className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-6 shadow-xl">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
-                  <h1 className="text-3xl font-bold">KARA - Child Protection System (United States)</h1>
+                  <div className="flex items-center gap-4">
+                    <h1 className="text-3xl font-bold">KARA AI - Child Protection System</h1>
+                    <span className="ai-badge">AI POWERED</span>
+                  </div>
                   <div className="flex items-center gap-6">
                     <span>Welcome <strong>{user.username}</strong> ({user.role})</span>
-                    <button onClick={handleLogout} className="bg-white text-blue-700 px-6 py-3 rounded-lg font-bold hover:bg-gray-100">Logout</button>
+                    <button onClick={handleLogout} className="bg-white text-blue-700 px-6 py-3 rounded-lg font-bold">Logout</button>
                   </div>
                 </div>
               </header>
 
               <div className="max-w-7xl mx-auto p-6 grid lg:grid-cols-2 gap-8">
+                {/* Statistics */}
                 <div className="bg-white rounded-2xl shadow-xl p-8 space-y-8">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-2xl font-bold text-blue-700">National Statistics (USA)</h3>
-                    <div className="flex gap-3">
-                      <button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg font-bold">Export Excel</button>
-                      <button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-lg font-bold">Export PDF</button>
+                    <h3 className="text-2xl font-bold text-blue-700">National Statistics</h3>
+                    <div className="space-x-4">
+                      <button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold">Export Excel</button>
+                      <button onClick={exportToPDF} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold">Export PDF</button>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 text-center">
-                    <div className="bg-gray-100 p-6 rounded-xl"><p className="text-4xl font-bold">{stats.total}</p><p>Total Cases</p></div>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-6 text-center">
+                    <div className="bg-gray-100 p-6 rounded-xl"><p className="text-4xl font-bold">{stats.total}</p><p>Total</p></div>
                     <div className="bg-red-100 p-6 rounded-xl"><p className="text-4xl font-bold text-red-600">{stats.critical}</p><p>Critical</p></div>
-                    <div className="bg-orange-100 p-6 rounded-xl"><p className="text-4xl font-bold text-orange-700">{stats.high}</p><p>High Risk</p></div>
-                    <div className="bg-yellow-100 p-6 rounded-xl"><p className="text-4xl font-bold text-yellow-700">{stats.medium}</p><p>Medium Risk</p></div>
-                    <div className="bg-green-100 p-6 rounded-xl"><p className="text-4xl font-bold text-green-700">{stats.low}</p><p>Low Risk</p></div>
+                    <div className="bg-orange-100 p-6 rounded-xl"><p className="text-4xl font-bold text-orange-700">{stats.high}</p><p>High</p></div>
+                    <div className="bg-yellow-100 p-6 rounded-xl"><p className="text-4xl font-bold text-yellow-700">{stats.medium}</p><p>Medium</p></div>
+                    <div className="bg-green-100 p-6 rounded-xl"><p className="text-4xl font-bold text-green-700">{stats.low}</p><p>Low</p></div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -522,31 +433,18 @@
                     <div className="chart-pie-container"><canvas ref={chartRefs.state}></canvas></div>
                   </div>
 
-                  <div className="bg-gray-50 rounded-xl p-6">
-                    <canvas ref={chartRefs.trend}></canvas>
-                  </div>
+                  <div className="bg-gray-50 rounded-xl p-6"><canvas ref={chartRefs.trend}></canvas></div>
 
                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6">
-                    <h4 className="text-xl font-bold text-purple-800 mb-4 text-center">Risk Level Distribution by State</h4>
-                    <div className="chart-bar-container">
-                      <canvas ref={chartRefs.bar}></canvas>
-                    </div>
-                    <div className="flex justify-center gap-8 mt-4 text-sm font-medium">
-                      <span className="flex items-center gap-2"><div className="w-4 h-4 bg-green-500 rounded"></div>Low</span>
-                      <span className="flex items-center gap-2"><div className="w-4 h-4 bg-yellow-500 rounded"></div>Medium</span>
-                      <span className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-500 rounded"></div>High</span>
-                      <span className="flex items-center gap-2"><div className="w-4 h-4 bg-red-600 rounded"></div>Critical</span>
-                    </div>
+                    <h4 className="text-xl font-bold text-purple-800 mb-4 text-center">Risk Level by State</h4>
+                    <div className="chart-bar-container"><canvas ref={chartRefs.bar}></canvas></div>
                   </div>
                 </div>
 
+                {/* Form */}
                 <div className="bg-white rounded-2xl shadow-xl p-8">
                   <h3 className="text-2xl font-bold text-blue-700 mb-6">{editingId ? "Edit Case" : "New Case Entry"}</h3>
-                  {stats.hasAlert && (
-                    <div className="bg-red-100 border-l-4 border-red-600 text-red-800 p-5 rounded mb-6 font-bold text-lg">
-                      CRITICAL CASE DETECTED – IMMEDIATE ACTION REQUIRED!
-                    </div>
-                  )}
+                  {stats.hasAlert && <div className="bg-red-100 border-l-4 border-red-600 text-red-800 p-5 rounded mb-6 font-bold text-lg animate-pulse">CRITICAL CASE – IMMEDIATE ACTION REQUIRED!</div>}
                   <form onSubmit={handleSubmit} className="space-y-5">
                     <select value={caseType} onChange={e=>setCaseType(e.target.value)} className="w-full p-4 border-2 rounded-xl">
                       <option value="case_note">Case Note</option>
@@ -556,33 +454,35 @@
                     <input required placeholder="Child's Full Name" value={childName} onChange={e=>setChildName(e.target.value)} className="w-full p-4 border-2 rounded-xl" />
                     <input required type="date" value={childDOB} onChange={e=>setChildDOB(e.target.value)} className="w-full p-4 border-2 rounded-xl" />
                     <select value={childGender} onChange={e=>setChildGender(e.target.value)} className="w-full p-4 border-2 rounded-xl">
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
+                      <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
                     </select>
                     <select value={state} onChange={e=>setState(e.target.value)} className="w-full p-4 border-2 rounded-xl bg-blue-50 font-medium">
                       {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <textarea required placeholder="Describe the incident or observations..." value={content} onChange={e=>setContent(e.target.value)} className="w-full p-4 border-2 rounded-xl h-40 resize-none"></textarea>
-                    <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-5 rounded-xl font-bold text-xl shadow-lg">
-                      {editingId ? "Update Case" : "Submit & Analyze Risk"}
+                    <textarea required placeholder="Describe incident..." value={content} onChange={e=>setContent(e.target.value)} className="w-full p-4 border-2 rounded-xl h-40 resize-none"></textarea>
+                    <button type="submit" disabled={isAnalyzing} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-5 rounded-xl font-bold text-xl flex items-center justify-center gap-3">
+                      {isAnalyzing ? "Analyzing..." : (editingId ? "Update" : "Submit & AI Analyze")}
+                      {!isAnalyzing && <span className="ai-badge">AI</span>}
                     </button>
                   </form>
                 </div>
               </div>
 
+              {/* BẢNG LỊCH SỬ + TÌM KIẾM */}
               {(user.role === "admin" || user.role === "organization") && (
                 <div className="max-w-7xl mx-auto p-6">
                   <div className="bg-white rounded-2xl shadow-xl p-8">
                     <h3 className="text-2xl font-bold text-blue-700 mb-6">Case History ({filteredAndSortedCases.length} cases)</h3>
+
+                    {/* PHẦN TÌM KIẾM VÀ LỌC */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                       <input placeholder="Search name or notes..." value={search} onChange={e=>setSearch(e.target.value)} className="px-5 py-3 border-2 rounded-xl" />
                       <select value={filterLevel} onChange={e=>setFilterLevel(e.target.value)} className="px-5 py-3 border-2 rounded-xl">
                         <option value="all">All Risk Levels</option>
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
                         <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
                       </select>
                       <select value={filterState} onChange={e=>setFilterState(e.target.value)} className="px-5 py-3 border-2 rounded-xl">
                         <option value="all">All States</option>
@@ -592,7 +492,7 @@
                         <input type="number" placeholder="Min age" value={filterAgeMin} onChange={e=>setFilterAgeMin(e.target.value)} className="w-24 px-4 py-3 border-2 rounded-xl" />
                         <input type="number" placeholder="Max age" value={filterAgeMax} onChange={e=>setFilterAgeMax(e.target.value)} className="w-24 px-4 py-3 border-2 rounded-xl" />
                       </div>
-                      <button onClick={()=>{setSearch("");setFilterLevel("all");setFilterState("all");setFilterAgeMin("");setFilterAgeMax("");}} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700">Clear Filters</button>
+                      <button onClick={clearFilters} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold">Clear Filters</button>
                     </div>
 
                     <div className="overflow-x-auto rounded-xl border">
@@ -612,27 +512,51 @@
                         <tbody>
                           {filteredAndSortedCases.length === 0 ? (
                             <tr><td colSpan="8" className="p-12 text-center text-gray-500 text-xl">No cases found</td></tr>
-                          ) : (
-                            filteredAndSortedCases.map(c => (
-                              <tr key={c.id} className="border-b hover:bg-gray-50">
-                                <td className="p-4 font-medium">{c.childName}</td>
-                                <td className="p-4">{formatDateUS(c.childDOB)}</td>
-                                <td className="p-4 text-center font-bold text-lg">{c.childAge}</td>
-                                <td className={`p-4 font-bold ${c.prediction==="critical"?"text-red-600":c.prediction==="high"?"text-orange-600":c.prediction==="medium"?"text-yellow-700":"text-green-600"}`}>
-                                  {c.prediction.toUpperCase()}
-                                </td>
-                                <td className="p-4">{c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "-"}</td>
-                                <td className="p-4">{c.state}</td>
-                                <td className="p-4">{c.date}</td>
-                                <td className="p-4">
-                                  <button onClick={()=>handleEdit(c)} className="bg-blue-600 text-white px-4 py-2 rounded-lg mr-2 hover:bg-blue-700">Edit</button>
-                                  <button onClick={()=>handleDelete(c.id)} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">Delete</button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
+                          ) : filteredAndSortedCases.map(c => (
+                            <tr key={c.id} className="border-b hover:bg-gray-50">
+                              <td className="p-4 font-medium">{c.childName}</td>
+                              <td className="p-4">{formatDateUS(c.childDOB)}</td>
+                              <td className="p-4 text-center font-bold text-lg">{c.childAge}</td>
+                              <td className={`p-4 font-bold ${c.prediction==="critical"?"text-red-600":c.prediction==="high"?"text-orange-600":c.prediction==="medium"?"text-yellow-700":"text-green-600"}`}>
+                                {c.prediction.toUpperCase()}
+                              </td>
+                              <td className="p-4">{c.abuseType === "neglect" ? "Neglect" : c.abuseType === "abuse" ? "Physical Abuse" : "-"}</td>
+                              <td className="p-4">{c.state}</td>
+                              <td className="p-4">{c.date}</td>
+                              <td className="p-4 space-x-2">
+                                <button onClick={()=>handleEdit(c)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Edit</button>
+                                <button onClick={()=>handleDelete(c.id)} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">Delete</button>
+                                <button onClick={()=>openLlamaReport(c)} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-bold text-sm">AI Report</button>
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Report Modal */}
+              {reportCaseId && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-screen overflow-y-auto">
+                    <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-t-2xl">
+                      <h3 className="text-2xl font-bold">AI-Generated Report (Llama 3)</h3>
+                    </div>
+                    <div className="p-8">
+                      {isGeneratingReport ? (
+                        <div className="text-center py-16">
+                          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-600 border-t-transparent mb-4"></div>
+                          <p className="text-xl text-purple-700">Đang tạo báo cáo...</p>
+                        </div>
+                      ) : (
+                        <pre className="whitespace-pre-wrap font-sans text-gray-800 text-base leading-relaxed bg-gray-50 p-6 rounded-xl border">{llamaReport}</pre>
+                      )}
+                      <div className="flex justify-end gap-4 mt-8">
+                        <button onClick={() => navigator.clipboard.writeText(llamaReport)} className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold">Copy</button>
+                        <button onClick={closeLlamaReport} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3 rounded-lg font-bold">Close</button>
+                      </div>
                     </div>
                   </div>
                 </div>
